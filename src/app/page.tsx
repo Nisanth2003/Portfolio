@@ -1,13 +1,20 @@
+import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
+
 import { Hero } from '@/components/hero/hero';
-import { ProjectGrid } from '@/components/work/project-grid';
+import { ProjectRail } from '@/components/work/project-rail';
 import { StackSection } from '@/components/stack/stack-section';
 import { ExperienceSection } from '@/components/experience/experience-section';
+import { Button } from '@/components/ui/button';
 import { CountUp } from '@/components/motion/count-up';
 import { Marquee } from '@/components/motion/marquee';
 import { ClipWipe, Parallax, ScrollReveal3D, ScrollRule } from '@/components/motion/scroll-fx';
-import { allTech, headlineStats, projectFilters, projects, summaryStats } from '@/lib/projects';
+import { allTech, headlineStats, projects, summaryStats } from '@/lib/projects';
 import { stackNames } from '@/lib/stack';
 import { site } from '@/lib/site';
+
+/** How many projects the home rail carries before you have to go to the archive. */
+const RAIL_LIMIT = 5;
 
 const toHeroProject = (p: (typeof projects)[number]) => ({
   slug: p.slug,
@@ -17,10 +24,12 @@ const toHeroProject = (p: (typeof projects)[number]) => ({
 });
 
 export default function HomePage() {
-  const filters = projectFilters();
-
   const featured = projects.filter((p) => p.featured);
   const rail = (featured.length > 0 ? featured : projects).slice(0, 6);
+
+  // `projects` is already sorted featured-first, so the head of the list is the right
+  // five without a second pass.
+  const railProjects = projects.slice(0, RAIL_LIMIT);
 
   /**
    * The Stack tab is the better source once it exists: it's the full toolset, where
@@ -112,7 +121,22 @@ export default function HomePage() {
             </ScrollReveal3D>
           </div>
 
-          <ProjectGrid projects={projects} filters={filters} />
+          {/* Above the rail, because the rail is a sample and the button is the way out
+              of it — putting it underneath means scrolling a moving track to find it. */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-t border-border/40 pt-6">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70">
+              Showing {railProjects.length} of {summaryStats.projectCount}
+            </p>
+
+            <Button asChild variant="outline" size="sm">
+              <Link href="/work">
+                View all projects
+                <ArrowUpRight aria-hidden="true" />
+              </Link>
+            </Button>
+          </div>
+
+          <ProjectRail projects={railProjects} />
         </div>
       </section>
 

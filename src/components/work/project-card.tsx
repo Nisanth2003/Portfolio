@@ -19,7 +19,21 @@ const STATUS_LABEL: Record<Project['status'], string> = {
 
 const DEFAULT_ACCENT = '#A855F7';
 
-export function ProjectCard({ project, index }: { project: Project; index: number }) {
+export function ProjectCard({
+  project,
+  index,
+  reveal = true,
+}: {
+  project: Project;
+  index: number;
+  /**
+   * The scroll-scrubbed 3D entrance. Off inside the horizontal rail: every card there
+   * shares one vertical position, so they would all rotate in together as a slab, and a
+   * blur filter over a track that is already animating its own transform is the most
+   * expensive thing on the page for no visible gain.
+   */
+  reveal?: boolean;
+}) {
   const prefersReducedMotion = useReducedMotion();
   const cardRef = useRef<HTMLDivElement>(null);
   const glareRef = useRef<HTMLDivElement>(null);
@@ -68,15 +82,7 @@ export function ProjectCard({ project, index }: { project: Project; index: numbe
   const visibleTech = project.tech.slice(0, 4);
   const hiddenTech = project.tech.length - visibleTech.length;
 
-  return (
-    // Scrubbed to this card's own scroll progress: it rotates up out of Z-space on
-    // the way in and runs backwards when you scroll up. Alternating direction gives
-    // the grid a hand-dealt feel instead of a uniform slide.
-    <ScrollReveal3D
-      className="group h-full"
-      intensity={0.95}
-      from={index % 2 === 0 ? 'left' : 'right'}
-    >
+  const card = (
       <div
         ref={cardRef}
         data-prox
@@ -264,6 +270,22 @@ export function ProjectCard({ project, index }: { project: Project; index: numbe
           </div>
         </div>
       </div>
+  );
+
+  // The `group` class has to live on whichever element ends up outermost, or every
+  // group-hover rule inside the card silently stops firing.
+  if (!reveal) return <div className="group h-full">{card}</div>;
+
+  return (
+    // Scrubbed to this card's own scroll progress: it rotates up out of Z-space on
+    // the way in and runs backwards when you scroll up. Alternating direction gives
+    // the grid a hand-dealt feel instead of a uniform slide.
+    <ScrollReveal3D
+      className="group h-full"
+      intensity={0.95}
+      from={index % 2 === 0 ? 'left' : 'right'}
+    >
+      {card}
     </ScrollReveal3D>
   );
 }

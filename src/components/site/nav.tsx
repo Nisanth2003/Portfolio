@@ -50,6 +50,9 @@ export function Nav() {
 
         <nav aria-label="Main" className="flex items-center gap-1">
           <NavLink href="/#work">Work</NavLink>
+          {/* The stairwell page. Separate from "Work" on purpose: that one is the
+              featured rail on the home page, this one is everything. */}
+          <NavLink href="/work">Archive</NavLink>
           <NavLink href="/#contact">Contact</NavLink>
           {site.github && (
             <a

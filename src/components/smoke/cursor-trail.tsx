@@ -2,7 +2,7 @@
 
 import { useFBO } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 
 import { smokeStore } from './smoke-store';
@@ -69,6 +69,33 @@ const SPLAT_RADIUS = 0.002;
 const SPLAT_FORCE = 20;
 /** Dye injected per move. Reference splats colour components around 0.06–0.36. */
 const DYE_AMOUNT = 0.3;
+/**
+ * Frames between colour re-rolls. The reference counts pointer-move events and picks a
+ * new colour every 25 of them, which is what makes the plume read as many-coloured
+ * rather than one tinted cloud.
+ */
+const COLOR_HOLD_MOVES = 25;
+/**
+ * Hue advance per re-roll, as a fraction of the wheel. The golden ratio rather than
+ * Math.random(): random hue lands on a near-identical colour often enough to look like
+ * a bug, and the rest of this scene is deterministic on purpose so a reload looks the
+ * same twice.
+ */
+const HUE_STEP = 0.618034;
+/**
+ * How much of the hovered project's accent is mixed into each new colour. Pointing at
+ * a card still pulls the smoke toward its colour — it just no longer overrides it.
+ */
+const ACCENT_MIX = 0.3;
+/**
+ * Ceiling on displayed brightness, applied without touching hue. Two jobs: the plume
+ * stays under the bloom threshold in smoke-canvas.tsx (glow is what made the old trail
+ * read as fire), and dense cores stop clipping to white — "white smoke" was half of
+ * what was wrong with the previous ramp.
+ */
+const DISPLAY_PEAK = 0.52;
+/** Density at which the plume reaches full opacity. */
+const DISPLAY_FILL = 0.3;
 
 /*
  * Tuning guide, in order of how much each one changes the feel:
@@ -77,7 +104,9 @@ const DYE_AMOUNT = 0.3;
  *   SPLAT_RADIUS    size of each puff. 0.002 reference; 0.0005 gives a thin ribbon.
  *   DYE_DECAY_60    how long it hangs. 0.98 reference; 0.995 leaves lasting clouds.
  *   SPLAT_FORCE     how hard your cursor shoves the fluid.
- *   DYE_AMOUNT      opacity of the plume, before the display ramp.
+ *   DYE_AMOUNT      how much colour each move injects, before the display ceiling.
+ *   HUE_STEP        how far apart consecutive plume colours are on the hue wheel.
+ *   DISPLAY_PEAK    brightness ceiling. Raise it and the plume starts to bloom.
  *   SIM_MAX_EDGE    detail vs cost. 512 is a good laptop compromise; 256 halves the
  *                   pressure-solve cost and visibly coarsens the eddies.
  */
@@ -237,33 +266,29 @@ const CLEAR_FRAG = /* glsl */ `
 const DISPLAY_FRAG = /* glsl */ `
   precision highp float;
   uniform sampler2D uDye;
-  uniform vec3 uAsh;
-  uniform vec3 uViolet;
-  uniform vec3 uEmber;
-  uniform vec3 uAccent;
+  uniform float uPeak;
+  uniform float uFill;
   varying vec2 vUv;
 
   void main() {
-    float d = texture2D(uDye, vUv).r;
-    if (d < 0.004) discard;
-
     /**
-     * Purple ramp, coldest where it is thinnest. Unchanged from the previous version
-     * on purpose — the palette was never the problem, the motion was.
+     * The dye is now carried as colour, so display is just "show the dye" — same as the
+     * reference implementation, which draws the density buffer straight to the screen.
      *
-     *   thin  -> uAsh     near-black violet, the dissipating edge
-     *   mid   -> uViolet  dark purple, the body of the plume
-     *   dense -> uEmber   deep crimson-purple, only in the newest smoke
-     *
-     * Fire is brightest in the middle and dims outward; this is densest and darkest
-     * where it just left the pointer. Nothing here reaches the bloom threshold set in
-     * smoke-canvas.tsx, so it cannot glow.
+     * The previous version stored dye as a single scalar and mapped it through a fixed
+     * violet -> crimson ramp here. That is why every plume came out the same two
+     * colours no matter what: the colour was decided at display time, and density was
+     * the only thing the fluid actually carried.
      */
-    vec3 col = mix(uAsh, uViolet, smoothstep(0.04, 0.5, d));
-    col = mix(col, uEmber, smoothstep(0.58, 1.2, d));
-    col = mix(col, uAccent, 0.10);
+    vec3 dye = texture2D(uDye, vUv).rgb;
+    float density = max(max(dye.r, dye.g), dye.b);
+    if (density < 0.004) discard;
 
-    gl_FragColor = vec4(col, smoothstep(0.01, 0.42, d) * 0.62);
+    // Scale the whole triple by one factor, so capping brightness cannot shift the hue
+    // or wash it out toward white the way clamping each channel would.
+    vec3 col = dye * min(1.0, uPeak / max(density, 0.0001));
+
+    gl_FragColor = vec4(col, smoothstep(0.0, uFill, density));
   }
 `;
 
@@ -306,8 +331,25 @@ export function CursorTrail() {
   const seeded = useRef(false);
   const displayMaterial = useRef<THREE.ShaderMaterial>(null);
 
-  const accent = useMemo(() => new THREE.Color('#A855F7'), []);
-  const accentTarget = useMemo(() => new THREE.Color('#A855F7'), []);
+  /**
+   * The colour currently being injected, plus the counter that decides when to move on
+   * to the next one. Both are refs: the colour changes several times a second and no
+   * part of the DOM cares, so this must never touch React state.
+   */
+  const dyeColor = useMemo(() => new THREE.Color(), []);
+  const accentColor = useMemo(() => new THREE.Color(), []);
+  const hue = useRef(0.72);
+  const movesHeld = useRef(COLOR_HOLD_MOVES);
+
+  const rollColor = useCallback(() => {
+    hue.current = (hue.current + HUE_STEP) % 1;
+    // Lightness under 0.6 keeps the plume a colour rather than a pastel: the reference
+    // rolls all three channels independently, which averages out to something close to
+    // white surprisingly often.
+    dyeColor.setHSL(hue.current, 0.85, 0.55);
+    accentColor.set(smokeStore.accent);
+    dyeColor.lerp(accentColor, ACCENT_MIX);
+  }, [accentColor, dyeColor]);
 
   /**
    * One offscreen scene, one quad, one material swapped per pass. Building a scene per
@@ -424,11 +466,21 @@ export function CursorTrail() {
       run(passes.splat, velOut());
       velSwap.current = !velSwap.current;
 
-      // Dye: a scalar amount. Colour is applied at display time, which keeps the
-      // palette in one place instead of baked into advected texels.
+      // Dye: an actual colour, advected as three channels. Holding one colour for a run
+      // of frames and then stepping the hue is what gives the plume bands of colour —
+      // re-rolling every frame would average back out to grey along the stroke.
+      if (++movesHeld.current >= COLOR_HOLD_MOVES) {
+        movesHeld.current = 0;
+        rollColor();
+      }
+
       s.uTexel.value = dyeTexel;
       s.uTarget.value = dye().texture;
-      s.uColor.value.set(DYE_AMOUNT, DYE_AMOUNT, DYE_AMOUNT);
+      s.uColor.value.set(
+        dyeColor.r * DYE_AMOUNT,
+        dyeColor.g * DYE_AMOUNT,
+        dyeColor.b * DYE_AMOUNT,
+      );
       run(passes.splat, dyeOut());
       dyeSwap.current = !dyeSwap.current;
     }
@@ -503,21 +555,17 @@ export function CursorTrail() {
 
     if (displayMaterial.current) {
       displayMaterial.current.uniforms.uDye.value = dye().texture;
-      accentTarget.set(smokeStore.accent);
-      accent.lerp(accentTarget, Math.min(1, dt * 3));
     }
   });
 
   const displayUniforms = useMemo(
     () => ({
       uDye: { value: null as THREE.Texture | null },
-      uAsh: { value: new THREE.Color('#1B0F2E') },
-      uViolet: { value: new THREE.Color('#4C1D95') },
-      uEmber: { value: new THREE.Color('#7A1F4B') },
-      uAccent: { value: accent },
+      uPeak: { value: DISPLAY_PEAK },
+      uFill: { value: DISPLAY_FILL },
       uTexel: { value: new THREE.Vector2() },
     }),
-    [accent],
+    [],
   );
 
   return (

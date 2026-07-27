@@ -264,6 +264,22 @@
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
     mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
   }
+
+  /* Same, vertically, for the self-scrolling stack columns. A hard edge makes a looping
+     column look cut off; a fade makes tiles arrive and leave. */
+  .fade-edges-y {
+    /* Kept narrow. A column is only as tall as its own content, so a wide fade would be
+       eating a real proportion of a short column rather than just softening its ends. */
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(180deg, transparent, #000 6%, #000 94%, transparent);
+  }
+
+  /* The horizontal rail only needs its ends softened, and further in than the
+     columns — a card is much wider than a tile, so an 8% fade barely touches it. */
+  .fade-edges-x {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+  }
 }
 
 /**
