@@ -26,3 +26,6 @@ experience-template.csv
 # public/tech/ is intentionally NOT ignored. The icons are ~1.5KB SVGs downloaded by
 # `npm run data`; committing them keeps the build reproducible offline and means a
 # CDN outage can't strip the stack section of its icons.
+
+# Claude Code local config and skills - not part of the project
+.claude/
