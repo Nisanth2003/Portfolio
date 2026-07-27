@@ -8,211 +8,281 @@ import * as THREE from 'three';
 import { smokeStore } from './smoke-store';
 
 /**
- * Smoke that trails the cursor.
+ * Cursor smoke, as an actual fluid simulation.
  *
- * This is a two-target ping-pong simulation, not a particle system. Each frame:
+ * The previous version advected a density field along a procedural noise flow. It
+ * dissipated convincingly but never *curled*, because there was no velocity field to
+ * curl — the noise pushed density around, and density had no influence back. That is
+ * why it read as a fading brush stroke rather than smoke.
  *
- *   1. Sample the previous frame slightly *offset* along a flow field — that
- *      displacement is the advection, and it is what makes the trail rise and curl
- *      after the cursor has gone rather than just fading in place.
- *   2. Multiply by a decay constant so old smoke dissipates.
- *   3. Blur slightly, so it spreads as it ages.
- *   4. Additively splat a soft brush along the segment from the previous cursor
- *      position to the current one.
+ * This is the standard GPU stable-fluids solver (Stam 1999, as popularised by Pavel
+ * Dobryakov's WebGL fluid sim). Per frame, on ping-ponged float textures:
  *
- * Splatting along a *segment* rather than at a point is the detail that matters: at
- * 60fps a fast flick moves the cursor hundreds of pixels between frames, and a point
- * splat would leave a dotted line instead of a continuous ribbon.
+ *   1. splat    — the pointer injects velocity (from its delta) and dye at its position
+ *   2. curl     — measure the rotation of the velocity field
+ *   3. vorticity— push velocity back along the curl gradient, amplifying eddies that
+ *                 numerical diffusion would otherwise flatten out. THIS is the billow.
+ *   4. divergence
+ *   5. pressure — Jacobi iterations solving for a pressure field
+ *   6. gradient — subtract its gradient, making velocity incompressible. THIS is what
+ *                 makes the fluid roll around itself instead of just spreading.
+ *   7. advect   — carry velocity along itself, then carry dye along velocity
  *
- * Cost is two fullscreen texture reads at half resolution — far cheaper than the
- * layered noise it sits on top of.
+ * Steps 3 and 6 are the two the old version lacked, and between them they are the
+ * entire difference between "a trail" and "smoke".
+ *
+ * Cost: 25 pressure iterations on a grid capped at 512px on the long edge, plus eight
+ * cheap full-grid passes. Shares the page's single WebGL context rather than opening
+ * its own canvas, so the moon, stars and rune gate still composite with it.
  */
-
-const SIM_VERT = /* glsl */ `
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = vec4(position.xy, 0.0, 1.0);
-  }
-`;
-
-const SIM_FRAG = /* glsl */ `
-  precision highp float;
-
-  uniform sampler2D uPrev;
-  uniform vec2 uMouse;
-  uniform vec2 uPrevMouse;
-  uniform vec2 uTexel;
-  uniform float uAspect;
-  uniform float uTime;
-  uniform float uDecay;
-  uniform float uRadius;
-  uniform float uStrength;
-  uniform float uActive;
-
-  varying vec2 vUv;
-
-  float hash(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-  }
-
-  float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(
-      mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-      u.y
-    );
-  }
-
-  /** Distance from p to the segment ab. Gives a continuous brush along cursor travel. */
-  float segmentDistance(vec2 p, vec2 a, vec2 b) {
-    vec2 pa = p - a;
-    vec2 ba = b - a;
-    float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
-    return length(pa - ba * h);
-  }
-
-  void main() {
-    vec2 uv = vUv;
-
-    // Flow field. Rise is deliberately weak and swirl is strong: smoke spreads and
-    // curls outward, whereas fire climbs in a column. Getting this ratio wrong is
-    // most of what makes a trail read as flame.
-    //
-    // Pushed further that way. Two swirl octaves at different scales instead of one,
-    // so the plume folds over itself rather than shearing uniformly, and the upward
-    // term is down from 0.5 to 0.28 — the previous value was enough of a column to
-    // still register as a flicker.
-    float swirl = noise(uv * 3.2 + uTime * 0.15) - 0.5;
-    swirl += (noise(uv * 7.4 - uTime * 0.09) - 0.5) * 0.6;
-    vec2 flow = vec2(swirl * 3.4, 0.28);
-
-    // Sampling *behind* the flow direction is what moves the smoke forward.
-    vec2 src = uv - flow * uTexel * 1.1;
-
-    // Wide 4-tap blur while advecting, so wisps billow and dissolve rather than
-    // holding a hard edge like a brush stroke.
-    float prev = texture2D(uPrev, src).r * 0.36;
-    prev += texture2D(uPrev, src + vec2(uTexel.x * 2.6, 0.0)).r * 0.16;
-    prev += texture2D(uPrev, src - vec2(uTexel.x * 2.6, 0.0)).r * 0.16;
-    prev += texture2D(uPrev, src + vec2(0.0, uTexel.y * 2.6)).r * 0.16;
-    prev += texture2D(uPrev, src - vec2(0.0, uTexel.y * 2.6)).r * 0.16;
-
-    float trail = prev * uDecay;
-
-    // Aspect-corrected space, or the brush would be an ellipse on a wide viewport.
-    vec2 p = vec2(uv.x * uAspect, uv.y);
-    vec2 a = vec2(uPrevMouse.x * uAspect, uPrevMouse.y);
-    vec2 b = vec2(uMouse.x * uAspect, uMouse.y);
-
-    float d = segmentDistance(p, a, b);
-    float brush = exp(-(d * d) / (uRadius * uRadius)) * uStrength * uActive;
-
-    trail += brush;
-
-    gl_FragColor = vec4(clamp(trail, 0.0, 1.5), 0.0, 0.0, 1.0);
-  }
-`;
 
 /**
- * Clip-space quad. This must map uv 1:1 to the viewport, because the simulation
- * splats at screen UV — any mismatch and the smoke appears offset from the cursor
- * that drew it.
+ * Constants taken from the reference implementation rather than tuned by eye, because
+ * guessing them is what made the first attempt look like a thread instead of smoke.
+ *
+ * The simulation grid follows the viewport (the reference uses drawingBuffer >> 1)
+ * rather than a fixed small square: a coarse grid cannot hold fine vorticity, so a
+ * 128² field looks mushy no matter how the other numbers are set. Capped on the long
+ * edge so cost stays bounded on weak GPUs, and aspect-preserving so the fluid stays
+ * isotropic — a stretched grid makes eddies visibly oval.
  */
-const DISPLAY_VERT = /* glsl */ `
+const SIM_MAX_EDGE = 512;
+/** Jacobi iterations for the pressure solve. */
+const PRESSURE_ITERATIONS = 25;
+/** Vorticity confinement strength — the single biggest lever on how much it curls. */
+const CURL_STRENGTH = 35;
+/**
+ * Per-frame multipliers at 60fps, exponentiated by dt so the look is identical on a
+ * 144Hz display. 0.98 leaves dye at ~30% after one second, which is the difference
+ * between smoke that hangs and a trail that blinks out.
+ */
+const DYE_DECAY_60 = 0.98;
+const VELOCITY_DECAY_60 = 0.99;
+const PRESSURE_DECAY = 0.8;
+/** Gaussian splat radius in aspect-corrected UV². Five times the first attempt's. */
+const SPLAT_RADIUS = 0.002;
+/**
+ * Pointer force. The reference works in pixels (`delta * 10`) against a half-viewport
+ * grid; expressing it in grid units here makes it resolution-independent instead of
+ * silently weaker on large monitors.
+ */
+const SPLAT_FORCE = 20;
+/** Dye injected per move. Reference splats colour components around 0.06–0.36. */
+const DYE_AMOUNT = 0.3;
+
+/*
+ * Tuning guide, in order of how much each one changes the feel:
+ *
+ *   CURL_STRENGTH   more curl = more billowing. 35 is the reference; 60+ gets frantic.
+ *   SPLAT_RADIUS    size of each puff. 0.002 reference; 0.0005 gives a thin ribbon.
+ *   DYE_DECAY_60    how long it hangs. 0.98 reference; 0.995 leaves lasting clouds.
+ *   SPLAT_FORCE     how hard your cursor shoves the fluid.
+ *   DYE_AMOUNT      opacity of the plume, before the display ramp.
+ *   SIM_MAX_EDGE    detail vs cost. 512 is a good laptop compromise; 256 halves the
+ *                   pressure-solve cost and visibly coarsens the eddies.
+ */
+
+/**
+ * Neighbour offsets are computed in the vertex shader rather than the fragment shader
+ * so they interpolate for free — every pass below reads vL/vR/vT/vB.
+ */
+const BASE_VERT = /* glsl */ `
+  precision highp float;
+  uniform vec2 uTexel;
   varying vec2 vUv;
+  varying vec2 vL, vR, vT, vB;
   void main() {
     vUv = uv;
+    vL = uv - vec2(uTexel.x, 0.0);
+    vR = uv + vec2(uTexel.x, 0.0);
+    vT = uv + vec2(0.0, uTexel.y);
+    vB = uv - vec2(0.0, uTexel.y);
     gl_Position = vec4(position.xy, 0.0, 1.0);
   }
+`;
+
+const SPLAT_FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D uTarget;
+  uniform float uAspect;
+  uniform vec3 uColor;
+  uniform vec2 uPoint;
+  uniform float uRadius;
+  varying vec2 vUv;
+  void main() {
+    vec2 p = vUv - uPoint;
+    p.x *= uAspect;
+    vec3 splat = exp(-dot(p, p) / uRadius) * uColor;
+    gl_FragColor = vec4(texture2D(uTarget, vUv).xyz + splat, 1.0);
+  }
+`;
+
+const ADVECT_FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D uVelocity;
+  uniform sampler2D uSource;
+  uniform vec2 uTexel;
+  uniform float uDt;
+  uniform float uDecay;
+  varying vec2 vUv;
+  void main() {
+    // Semi-Lagrangian: look backwards along the velocity to find what arrives here.
+    vec2 coord = vUv - uDt * texture2D(uVelocity, vUv).xy * uTexel;
+    gl_FragColor = texture2D(uSource, coord) * uDecay;
+  }
+`;
+
+const CURL_FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D uVelocity;
+  varying vec2 vL, vR, vT, vB;
+  void main() {
+    float L = texture2D(uVelocity, vL).y;
+    float R = texture2D(uVelocity, vR).y;
+    float T = texture2D(uVelocity, vT).x;
+    float B = texture2D(uVelocity, vB).x;
+    gl_FragColor = vec4(0.5 * ((R - L) - (T - B)), 0.0, 0.0, 1.0);
+  }
+`;
+
+const VORTICITY_FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D uVelocity;
+  uniform sampler2D uCurl;
+  uniform float uCurlStrength;
+  uniform float uDt;
+  varying vec2 vUv;
+  varying vec2 vL, vR, vT, vB;
+  void main() {
+    float L = texture2D(uCurl, vL).x;
+    float R = texture2D(uCurl, vR).x;
+    float T = texture2D(uCurl, vT).x;
+    float B = texture2D(uCurl, vB).x;
+    float C = texture2D(uCurl, vUv).x;
+
+    // Force points up the gradient of |curl|, scaled by the local curl — it feeds
+    // energy back into eddies the solver's numerical diffusion is busy erasing.
+    vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L));
+    force /= length(force) + 0.0001;
+    force *= uCurlStrength * C;
+    force.y *= -1.0;
+
+    vec2 vel = texture2D(uVelocity, vUv).xy + force * uDt;
+    gl_FragColor = vec4(clamp(vel, -1000.0, 1000.0), 0.0, 1.0);
+  }
+`;
+
+const DIVERGENCE_FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D uVelocity;
+  varying vec2 vUv;
+  varying vec2 vL, vR, vT, vB;
+  void main() {
+    float L = texture2D(uVelocity, vL).x;
+    float R = texture2D(uVelocity, vR).x;
+    float T = texture2D(uVelocity, vT).y;
+    float B = texture2D(uVelocity, vB).y;
+
+    // Reflect at the edges, so the fluid bounces off the viewport instead of leaking.
+    vec2 C = texture2D(uVelocity, vUv).xy;
+    if (vL.x < 0.0) L = -C.x;
+    if (vR.x > 1.0) R = -C.x;
+    if (vT.y > 1.0) T = -C.y;
+    if (vB.y < 0.0) B = -C.y;
+
+    gl_FragColor = vec4(0.5 * ((R - L) + (T - B)), 0.0, 0.0, 1.0);
+  }
+`;
+
+const PRESSURE_FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D uPressure;
+  uniform sampler2D uDivergence;
+  varying vec2 vUv;
+  varying vec2 vL, vR, vT, vB;
+  void main() {
+    float L = texture2D(uPressure, vL).x;
+    float R = texture2D(uPressure, vR).x;
+    float T = texture2D(uPressure, vT).x;
+    float B = texture2D(uPressure, vB).x;
+    float divergence = texture2D(uDivergence, vUv).x;
+    gl_FragColor = vec4((L + R + B + T - divergence) * 0.25, 0.0, 0.0, 1.0);
+  }
+`;
+
+const GRADIENT_FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D uPressure;
+  uniform sampler2D uVelocity;
+  varying vec2 vUv;
+  varying vec2 vL, vR, vT, vB;
+  void main() {
+    float L = texture2D(uPressure, vL).x;
+    float R = texture2D(uPressure, vR).x;
+    float T = texture2D(uPressure, vT).x;
+    float B = texture2D(uPressure, vB).x;
+    vec2 velocity = texture2D(uVelocity, vUv).xy - vec2(R - L, T - B);
+    gl_FragColor = vec4(velocity, 0.0, 1.0);
+  }
+`;
+
+const CLEAR_FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D uTexture;
+  uniform float uValue;
+  varying vec2 vUv;
+  void main() { gl_FragColor = uValue * texture2D(uTexture, vUv); }
 `;
 
 const DISPLAY_FRAG = /* glsl */ `
   precision highp float;
-
-  uniform sampler2D uTrail;
+  uniform sampler2D uDye;
   uniform vec3 uAsh;
   uniform vec3 uViolet;
   uniform vec3 uEmber;
   uniform vec3 uAccent;
-  uniform float uTime;
-
   varying vec2 vUv;
 
-  float hash(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-  }
-
-  float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(
-      mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-      u.y
-    );
-  }
-
   void main() {
-    float t = texture2D(uTrail, vUv).r;
-    if (t < 0.004) discard;
-
-    // Three grain scales now. The extra coarse octave gives the plume large soft
-    // lumps instead of an even speckle, which is most of what separates "smoke" from
-    // "airbrushed gradient" at a glance.
-    float grain = noise(vUv * 9.0 - uTime * 0.09) * 0.30 + 0.76;
-    grain *= noise(vUv * 22.0 + uTime * 0.3) * 0.30 + 0.74;
-    grain *= noise(vUv * 58.0 - uTime * 0.18) * 0.26 + 0.84;
-    float d = t * grain;
+    float d = texture2D(uDye, vUv).r;
+    if (d < 0.004) discard;
 
     /**
-     * Purple ramp, coldest where it is thinnest.
+     * Purple ramp, coldest where it is thinnest. Unchanged from the previous version
+     * on purpose — the palette was never the problem, the motion was.
      *
      *   thin  -> uAsh     near-black violet, the dissipating edge
      *   mid   -> uViolet  dark purple, the body of the plume
      *   dense -> uEmber   deep crimson-purple, only in the newest smoke
      *
-     * The direction of that ramp is the whole trick. Fire is bright and hot in the
-     * middle and dims outward; smoke is densest and *darkest* where it just left the
-     * source. Every colour here is darker than the accent it replaced, and none of
-     * them reaches the bloom threshold, so nothing can bloom into a flame.
+     * Fire is brightest in the middle and dims outward; this is densest and darkest
+     * where it just left the pointer. Nothing here reaches the bloom threshold set in
+     * smoke-canvas.tsx, so it cannot glow.
      */
-    vec3 col = mix(uAsh, uViolet, smoothstep(0.05, 0.55, d));
-    col = mix(col, uEmber, smoothstep(0.62, 1.25, d));
-
-    // A trace of the hovered project's colour, kept low so a warm accentColour on a
-    // card cannot drag the plume back toward orange.
+    vec3 col = mix(uAsh, uViolet, smoothstep(0.04, 0.5, d));
+    col = mix(col, uEmber, smoothstep(0.58, 1.2, d));
     col = mix(col, uAccent, 0.10);
 
-    // Slightly more opaque than before, because the colours are now much darker —
-    // this occludes the sky rather than lighting it. Still capped well under the
-    // bloom threshold in smoke-canvas.tsx.
-    float alpha = smoothstep(0.015, 0.46, d) * 0.55;
-    gl_FragColor = vec4(col, alpha);
+    gl_FragColor = vec4(col, smoothstep(0.01, 0.42, d) * 0.62);
   }
 `;
 
 export function CursorTrail() {
   const { size } = useThree();
 
-  // Half resolution: the trail is soft by nature, so full-res buys nothing visible
-  // and doubles the cost of both texture reads.
-  const width = Math.max(2, Math.round(size.width / 2));
-  const height = Math.max(2, Math.round(size.height / 2));
+  // Dye at half viewport, so the plume has real edge detail when upscaled.
+  const dyeW = Math.max(2, Math.round(size.width / 2));
+  const dyeH = Math.max(2, Math.round(size.height / 2));
 
-  const fboSettings = useMemo(
+  // Velocity/pressure grid: half viewport, capped on the long edge, aspect preserved.
+  const simScale = Math.min(0.5, SIM_MAX_EDGE / Math.max(size.width, size.height));
+  const simW = Math.max(2, Math.round(size.width * simScale));
+  const simH = Math.max(2, Math.round(size.height * simScale));
+
+  const fbo = useMemo(
     () => ({
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
-      // Half float, so decay stays smooth instead of banding into 8-bit steps.
       type: THREE.HalfFloatType,
       depthBuffer: false,
       stencilBuffer: false,
@@ -220,102 +290,232 @@ export function CursorTrail() {
     [],
   );
 
-  const targetA = useFBO(width, height, fboSettings);
-  const targetB = useFBO(width, height, fboSettings);
+  const dyeA = useFBO(dyeW, dyeH, fbo);
+  const dyeB = useFBO(dyeW, dyeH, fbo);
+  const velA = useFBO(simW, simH, fbo);
+  const velB = useFBO(simW, simH, fbo);
+  const presA = useFBO(simW, simH, fbo);
+  const presB = useFBO(simW, simH, fbo);
+  const curlRT = useFBO(simW, simH, fbo);
+  const divRT = useFBO(simW, simH, fbo);
 
-  const swap = useRef(false);
-  const prevMouse = useRef(new THREE.Vector2(0.5, 0.5));
+  const dyeSwap = useRef(false);
+  const velSwap = useRef(false);
+  const presSwap = useRef(false);
+  const prevPoint = useRef(new THREE.Vector2(0.5, 0.5));
+  const seeded = useRef(false);
   const displayMaterial = useRef<THREE.ShaderMaterial>(null);
 
   const accent = useMemo(() => new THREE.Color('#A855F7'), []);
   const accentTarget = useMemo(() => new THREE.Color('#A855F7'), []);
 
-  /** The simulation pass lives in its own scene with its own camera, rendered by
-   *  hand into a framebuffer — it never appears in the main scene graph. */
-  const sim = useMemo(() => {
+  /**
+   * One offscreen scene, one quad, one material swapped per pass. Building a scene per
+   * pass would allocate ten of everything for no benefit — only the shader differs.
+   */
+  const passes = useMemo(() => {
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    const material = new THREE.ShaderMaterial({
-      vertexShader: SIM_VERT,
-      fragmentShader: SIM_FRAG,
-      depthTest: false,
-      depthWrite: false,
-      uniforms: {
-        uPrev: { value: null as THREE.Texture | null },
-        uMouse: { value: new THREE.Vector2(0.5, 0.5) },
-        uPrevMouse: { value: new THREE.Vector2(0.5, 0.5) },
-        uTexel: { value: new THREE.Vector2() },
-        uAspect: { value: 1 },
-        uTime: { value: 0 },
-        uDecay: { value: 0.965 },
-        // Brush sigma in aspect-corrected units. Wider and softer again: a broad
-        // low-strength puff spreads into a plume, where a tight strong one stays a
-        // drawn line no matter what the flow field does to it. Strength comes down
-        // with the slower decay, or density accumulates into a solid blob.
-        uRadius: { value: 0.058 },
-        uStrength: { value: 0.5 },
-        uActive: { value: 0 },
-      },
-    });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
     mesh.frustumCulled = false;
     scene.add(mesh);
-    return { scene, camera, material };
+
+    const make = (fragmentShader: string, uniforms: Record<string, THREE.IUniform>) =>
+      new THREE.ShaderMaterial({
+        vertexShader: BASE_VERT,
+        fragmentShader,
+        depthTest: false,
+        depthWrite: false,
+        uniforms: { uTexel: { value: new THREE.Vector2() }, ...uniforms },
+      });
+
+    return {
+      scene,
+      camera,
+      mesh,
+      splat: make(SPLAT_FRAG, {
+        uTarget: { value: null },
+        uAspect: { value: 1 },
+        uColor: { value: new THREE.Vector3() },
+        uPoint: { value: new THREE.Vector2() },
+        uRadius: { value: SPLAT_RADIUS },
+      }),
+      advect: make(ADVECT_FRAG, {
+        uVelocity: { value: null },
+        uSource: { value: null },
+        uDt: { value: 0.016 },
+        uDecay: { value: 1 },
+      }),
+      curl: make(CURL_FRAG, { uVelocity: { value: null } }),
+      vorticity: make(VORTICITY_FRAG, {
+        uVelocity: { value: null },
+        uCurl: { value: null },
+        uCurlStrength: { value: CURL_STRENGTH },
+        uDt: { value: 0.016 },
+      }),
+      divergence: make(DIVERGENCE_FRAG, { uVelocity: { value: null } }),
+      pressure: make(PRESSURE_FRAG, { uPressure: { value: null }, uDivergence: { value: null } }),
+      gradient: make(GRADIENT_FRAG, { uPressure: { value: null }, uVelocity: { value: null } }),
+      clear: make(CLEAR_FRAG, { uTexture: { value: null }, uValue: { value: PRESSURE_DECAY } }),
+    };
   }, []);
 
   useFrame(({ gl }, delta) => {
-    const d = Math.min(delta, 0.05);
-    const u = sim.material.uniforms;
+    const dt = Math.min(delta, 1 / 30);
+    const simTexel = new THREE.Vector2(1 / simW, 1 / simH);
+    const dyeTexel = new THREE.Vector2(1 / dyeW, 1 / dyeH);
+    const aspect = size.width / size.height;
 
-    const read = swap.current ? targetB : targetA;
-    const write = swap.current ? targetA : targetB;
-
-    u.uPrev.value = read.texture;
-    u.uTime.value += d;
-    u.uTexel.value.set(1 / width, 1 / height);
-    u.uAspect.value = size.width / size.height;
-
-    u.uPrevMouse.value.copy(prevMouse.current);
-    u.uMouse.value.set(smokeStore.uv.x, smokeStore.uv.y);
-    prevMouse.current.set(smokeStore.uv.x, smokeStore.uv.y);
-
-    // Ease in rather than snapping on, so the first frame after load does not stamp
-    // a blob wherever the cursor happens to be.
-    const wanted = smokeStore.pointerActive ? 1 : 0;
-    u.uActive.value += (wanted - u.uActive.value) * Math.min(1, d * 6);
-
-    // Frame-rate independent decay: a fixed per-frame multiplier would dissipate at
-    // different speeds on 60Hz and 144Hz displays.
-    //
-    // 0.02^seconds leaves a wisp at ~10% after 0.6s, against ~3% at the old 0.003.
-    // Smoke hangs and thins; a fast burn-off is a flame guttering. Slower than this
-    // and fast cursor movement smears the screen into a purple wash.
-    u.uDecay.value = Math.pow(0.02, d);
+    // Reference constants are per-frame at 60fps; raising them to dt*60 makes the look
+    // frame-rate independent instead of dissipating twice as fast at 120Hz.
+    const frames = dt * 60;
+    const dyeDecay = Math.pow(DYE_DECAY_60, frames);
+    const velDecay = Math.pow(VELOCITY_DECAY_60, frames);
 
     const previousTarget = gl.getRenderTarget();
-    gl.setRenderTarget(write);
-    gl.render(sim.scene, sim.camera);
+    const run = (material: THREE.ShaderMaterial, target: THREE.WebGLRenderTarget) => {
+      passes.mesh.material = material;
+      gl.setRenderTarget(target);
+      gl.render(passes.scene, passes.camera);
+    };
+
+    // Half-float targets are not guaranteed to start zeroed on every driver, and an
+    // uninitialised velocity field explodes on the first pressure solve. Force the
+    // clear colour to black rather than trusting the scene's — the canvas is created
+    // with alpha:false, so its clear colour is not necessarily zero.
+    if (!seeded.current) {
+      seeded.current = true;
+      const keptColor = new THREE.Color();
+      gl.getClearColor(keptColor);
+      const keptAlpha = gl.getClearAlpha();
+      gl.setClearColor(0x000000, 0);
+      for (const t of [dyeA, dyeB, velA, velB, presA, presB, curlRT, divRT]) {
+        gl.setRenderTarget(t);
+        gl.clear(true, false, false);
+      }
+      gl.setClearColor(keptColor, keptAlpha);
+    }
+
+    const vel = () => (velSwap.current ? velB : velA);
+    const velOut = () => (velSwap.current ? velA : velB);
+    const dye = () => (dyeSwap.current ? dyeB : dyeA);
+    const dyeOut = () => (dyeSwap.current ? dyeA : dyeB);
+
+    // ---- 1. splat -----------------------------------------------------------------
+    const px = smokeStore.uv.x;
+    const py = smokeStore.uv.y;
+    const dx = px - prevPoint.current.x;
+    const dy = py - prevPoint.current.y;
+    prevPoint.current.set(px, py);
+
+    const moved = Math.abs(dx) > 1e-5 || Math.abs(dy) > 1e-5;
+    if (smokeStore.pointerActive && moved) {
+      const s = passes.splat.uniforms;
+      s.uTexel.value = simTexel;
+      s.uAspect.value = aspect;
+      s.uPoint.value.set(px, py);
+
+      // Velocity: the pointer's own movement, so the fluid is pushed the way you
+      // actually moved. Converted to grid units (× the sim dimensions) so the same
+      // gesture produces the same motion on a laptop and a 4K monitor — passing UV
+      // deltas straight through made the effect weaker the larger the window got.
+      s.uTarget.value = vel().texture;
+      s.uColor.value.set(dx * simW * SPLAT_FORCE, dy * simH * SPLAT_FORCE, 1);
+      run(passes.splat, velOut());
+      velSwap.current = !velSwap.current;
+
+      // Dye: a scalar amount. Colour is applied at display time, which keeps the
+      // palette in one place instead of baked into advected texels.
+      s.uTexel.value = dyeTexel;
+      s.uTarget.value = dye().texture;
+      s.uColor.value.set(DYE_AMOUNT, DYE_AMOUNT, DYE_AMOUNT);
+      run(passes.splat, dyeOut());
+      dyeSwap.current = !dyeSwap.current;
+    }
+
+    // ---- 2. curl ------------------------------------------------------------------
+    passes.curl.uniforms.uTexel.value = simTexel;
+    passes.curl.uniforms.uVelocity.value = vel().texture;
+    run(passes.curl, curlRT);
+
+    // ---- 3. vorticity confinement -------------------------------------------------
+    const vo = passes.vorticity.uniforms;
+    vo.uTexel.value = simTexel;
+    vo.uVelocity.value = vel().texture;
+    vo.uCurl.value = curlRT.texture;
+    vo.uDt.value = dt;
+    run(passes.vorticity, velOut());
+    velSwap.current = !velSwap.current;
+
+    // ---- 4. divergence ------------------------------------------------------------
+    passes.divergence.uniforms.uTexel.value = simTexel;
+    passes.divergence.uniforms.uVelocity.value = vel().texture;
+    run(passes.divergence, divRT);
+
+    // ---- 5. pressure --------------------------------------------------------------
+    // Decay rather than zero: carrying part of last frame's pressure in as the initial
+    // guess is what lets 18 Jacobi iterations converge as well as far more from cold.
+    passes.clear.uniforms.uTexel.value = simTexel;
+    passes.clear.uniforms.uTexture.value = (presSwap.current ? presB : presA).texture;
+    passes.clear.uniforms.uValue.value = PRESSURE_DECAY;
+    run(passes.clear, presSwap.current ? presA : presB);
+    presSwap.current = !presSwap.current;
+
+    const pr = passes.pressure.uniforms;
+    pr.uTexel.value = simTexel;
+    pr.uDivergence.value = divRT.texture;
+    for (let i = 0; i < PRESSURE_ITERATIONS; i++) {
+      pr.uPressure.value = (presSwap.current ? presB : presA).texture;
+      run(passes.pressure, presSwap.current ? presA : presB);
+      presSwap.current = !presSwap.current;
+    }
+
+    // ---- 6. subtract the pressure gradient ----------------------------------------
+    const gr = passes.gradient.uniforms;
+    gr.uTexel.value = simTexel;
+    gr.uPressure.value = (presSwap.current ? presB : presA).texture;
+    gr.uVelocity.value = vel().texture;
+    run(passes.gradient, velOut());
+    velSwap.current = !velSwap.current;
+
+    // ---- 7. advect ----------------------------------------------------------------
+    const ad = passes.advect.uniforms;
+    ad.uDt.value = dt;
+
+    ad.uTexel.value = simTexel;
+    ad.uVelocity.value = vel().texture;
+    ad.uSource.value = vel().texture;
+    ad.uDecay.value = velDecay;
+    run(passes.advect, velOut());
+    velSwap.current = !velSwap.current;
+
+    // Dye advects against the SIM texel scale, not its own: velocity is expressed in
+    // simulation grid units, and dividing it by the dye's finer texels would move the
+    // dye a fraction of the distance the fluid actually travelled.
+    ad.uTexel.value = simTexel;
+    ad.uVelocity.value = vel().texture;
+    ad.uSource.value = dye().texture;
+    ad.uDecay.value = dyeDecay;
+    run(passes.advect, dyeOut());
+    dyeSwap.current = !dyeSwap.current;
+
     gl.setRenderTarget(previousTarget);
 
-    swap.current = !swap.current;
-
     if (displayMaterial.current) {
-      displayMaterial.current.uniforms.uTrail.value = write.texture;
-      displayMaterial.current.uniforms.uTime.value += d;
+      displayMaterial.current.uniforms.uDye.value = dye().texture;
       accentTarget.set(smokeStore.accent);
-      accent.lerp(accentTarget, Math.min(1, d * 3));
+      accent.lerp(accentTarget, Math.min(1, dt * 3));
     }
   });
 
   const displayUniforms = useMemo(
     () => ({
-      uTrail: { value: null as THREE.Texture | null },
-      // Dark purple -> purple -> crimson-purple. Read the ramp in DISPLAY_FRAG.
+      uDye: { value: null as THREE.Texture | null },
       uAsh: { value: new THREE.Color('#1B0F2E') },
       uViolet: { value: new THREE.Color('#4C1D95') },
       uEmber: { value: new THREE.Color('#7A1F4B') },
       uAccent: { value: accent },
-      uTime: { value: 0 },
+      uTexel: { value: new THREE.Vector2() },
     }),
     [accent],
   );
@@ -327,14 +527,13 @@ export function CursorTrail() {
       <shaderMaterial
         ref={displayMaterial}
         uniforms={displayUniforms}
-        vertexShader={DISPLAY_VERT}
+        vertexShader={BASE_VERT}
         fragmentShader={DISPLAY_FRAG}
         transparent
         depthWrite={false}
         depthTest={false}
-        // NormalBlending, not Additive. Additive can only ever brighten what is
-        // behind it, which is why the trail glowed like flame no matter how much the
-        // colour was toned down. Smoke occludes; it does not add light.
+        // NormalBlending, not Additive. Additive can only brighten what is behind it,
+        // which is what made the old trail glow like flame. Smoke occludes.
         blending={THREE.NormalBlending}
       />
     </mesh>
