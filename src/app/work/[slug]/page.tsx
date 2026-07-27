@@ -71,7 +71,7 @@ export default async function ProjectPage({ params }: { params: Promise<Params> 
 
         <div className="container max-w-4xl pb-16 pt-28">
           <Link
-            href="/#work"
+            href="/work"
             className="inline-flex items-center gap-2 rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft aria-hidden="true" className="size-4" />

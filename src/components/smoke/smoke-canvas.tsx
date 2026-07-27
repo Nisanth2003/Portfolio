@@ -541,11 +541,13 @@ export default function SmokeCanvas({
       <EffectComposer multisampling={0}>
         {/* Threshold is set above the cursor trail's peak brightness on purpose. The
             trail glowing is precisely what made it read as fire instead of smoke, so
-            only the moon, stars and rune lines are allowed past this. */}
+            only the moon, stars and rune lines are allowed past this. Raised from 0.42
+            to clear DISPLAY_PEAK in cursor-trail.tsx now that the plume is full colour
+            and therefore brighter than the old violet ramp ever got. */}
         <Bloom
           mipmapBlur
           intensity={1.25}
-          luminanceThreshold={0.42}
+          luminanceThreshold={0.5}
           luminanceSmoothing={0.2}
           kernelSize={KernelSize.MEDIUM}
         />
