@@ -1,0 +1,111 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+  # The manual "Rebuild" button. Use this after editing the sheet when you want the
+  # change live immediately instead of waiting for the nightly run.
+  workflow_dispatch:
+
+  # A static site can't read the sheet at request time, so freshness comes from
+  # rebuilding. 06:00 UTC daily.
+  schedule:
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race. In-progress runs finish rather than being cancelled,
+# so a deploy is never left half-applied.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve base path and site URL
+        # A repo named `<owner>.github.io` serves from the domain root; every other
+        # repo serves from `/<repo>`. Getting this wrong breaks every asset path, so
+        # it is derived rather than hand-configured.
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY#*/}"
+          owner_lc="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+
+          if [ "$(echo "$repo" | tr '[:upper:]' '[:lower:]')" = "${owner_lc}.github.io" ]; then
+            base=""
+          else
+            base="/${repo}"
+          fi
+
+          echo "NEXT_PUBLIC_BASE_PATH=${base}" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SITE_URL=https://${owner_lc}.github.io" >> "$GITHUB_ENV"
+          echo "Base path: '${base}'  Site URL: https://${owner_lc}.github.io"
+
+      - name: Fetch projects from the private sheet
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SHEET_RANGE: ${{ secrets.SHEET_RANGE }}
+          SHEET_CSV_URL: ${{ secrets.SHEET_CSV_URL }}
+        run: |
+          set -euo pipefail
+          # --strict only once a sheet is actually configured. Before that, the
+          # committed fallback is the intended source and must not fail the build.
+          # After that, a typo in the sheet should fail loudly rather than quietly
+          # redeploying yesterday's data as if nothing were wrong.
+          if [ -n "${SHEET_ID:-}" ] || [ -n "${SHEET_CSV_URL:-}" ]; then
+            echo "Sheet configured — running in strict mode."
+            npm run data -- --strict
+          else
+            echo "No sheet configured — using the committed fallback snapshot."
+            npm run data
+          fi
+
+      - name: Build static site
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npx next build
+
+      - name: Verify the export looks sane
+        # Cheap guard against shipping an empty site: a successful build that
+        # produced no project pages means the data step silently returned nothing.
+        run: |
+          set -euo pipefail
+          test -f out/index.html || { echo "::error::out/index.html missing"; exit 1; }
+          test -f out/.nojekyll || { echo "::error::out/.nojekyll missing — Pages will drop _next/"; exit 1; }
+          pages=$(find out/work -name index.html | wc -l)
+          echo "Prerendered project pages: ${pages}"
+          if [ "$pages" -lt 1 ]; then
+            echo "::error::No project pages were generated."
+            exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

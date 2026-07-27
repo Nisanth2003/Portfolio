@@ -1,0 +1,28 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Generated at build time from the sheet. The committed fallback snapshots in
+# src/data/*.fallback.json are the versions under version control.
+src/data/projects.json
+src/data/stack.json
+src/data/experience.json
+
+# Never commit these — the service account key is a credential.
+.env
+.env.local
+.env*.local
+.portfolio-503707-6ad5dbecc218.json
+portfolio-*.json
+service-account*.json
+
+sheet-template.csv
+stack-template.csv
+experience-template.csv
+.DS_Store
+
+# public/tech/ is intentionally NOT ignored. The icons are ~1.5KB SVGs downloaded by
+# `npm run data`; committing them keeps the build reproducible offline and means a
+# CDN outage can't strip the stack section of its icons.
