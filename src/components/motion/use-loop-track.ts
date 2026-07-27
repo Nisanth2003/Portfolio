@@ -74,6 +74,17 @@ export type LoopTrackOptions = {
   onEngagedChange?: (engaged: boolean) => void;
 };
 
+/** True only for focus that arrived from the keyboard. Guarded: an engine without
+ *  `:focus-visible` should fall through to "not a keyboard focus" rather than throw. */
+function matchesFocusVisible(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false;
+  try {
+    return target.matches(':focus-visible');
+  } catch {
+    return false;
+  }
+}
+
 /** Max gap between the two taps of a double-tap, ms. */
 const DOUBLE_TAP_MS = 400;
 /** How far the two taps may drift apart and still count as one gesture, px. */
@@ -272,6 +283,29 @@ export function useLoopTrack({
     glide.current += distance;
   }, []);
 
+  /**
+   * Why the track is standing still, or null if it is moving.
+   *
+   * Exists because this cannot be checked from outside the browser: an automated tab is
+   * backgrounded, `requestAnimationFrame` never fires there, and every one of the reasons
+   * below lives in a ref specifically so it never re-renders anything. Same reasoning as
+   * the dev-only FPS readout in smoke-field.tsx — surface the number in development rather
+   * than guess at it. Mirrors the `idle` test in the loop above; keep the two in step.
+   */
+  const idleReason = useCallback((): string | null => {
+    if (!looping) return 'static';
+    if (period.current <= 0) return 'unmeasured';
+    if (!playingRef.current) return 'paused';
+    if (pausedRef.current) return 'paused (all)';
+    if (engagedRef.current) return 'held';
+    if (reduceRef.current) return 'reduced motion';
+    if (focused.current) return 'kbd focus';
+    if (held.current) return 'dragging';
+    if (!inView.current) return 'off screen';
+    if (document.hidden) return 'tab hidden';
+    return null;
+  }, [looping]);
+
   const togglePlaying = useCallback(() => setPlaying((p) => !p), []);
 
   /* ------------------------------------------------------------------------- wheel */
@@ -412,6 +446,21 @@ export function useLoopTrack({
     [endDrag, setEngaged],
   );
 
+  /**
+   * Safety net for the drag flag. `held` is what stops the track while you scrub, so a
+   * pointerup that never reaches the viewport — capture failed, the button came up over
+   * another window — would leave it stopped with no way back. Window-level release costs
+   * one listener and makes that unreachable.
+   */
+  useEffect(() => {
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+    return () => {
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
+    };
+  }, [endDrag]);
+
   /** Swallows the click that ends a drag, so scrubbing never opens a project. */
   const onClickCapture = useCallback((event: React.MouseEvent<HTMLElement>) => {
     if (dragged.current > 8) {
@@ -436,8 +485,17 @@ export function useLoopTrack({
 
   const handlers = {
     // No hover handlers. Crossing a track with the cursor is not a request to stop it.
-    onFocus: () => {
-      focused.current = true;
+    /**
+     * Keyboard focus holds the track; mouse focus does not.
+     *
+     * The distinction is not a nicety, it is the whole thing: the viewport is tabbable, so
+     * *clicking* it focuses it too. Treating that as a hold meant a track stopped for good
+     * after any click — including the second half of the double-tap that was supposed to
+     * release it, which is exactly the "it never starts again" bug. `:focus-visible` is
+     * false for click focus and true for tab focus, which is the line we actually want.
+     */
+    onFocus: (event: React.FocusEvent<HTMLElement>) => {
+      focused.current = matchesFocusVisible(event.target);
     },
     onBlur: () => {
       focused.current = false;
@@ -468,6 +526,7 @@ export function useLoopTrack({
     touchAction: engaged ? 'none' : axis === 'x' ? 'pan-y' : 'auto',
     togglePlaying,
     nudge,
+    idleReason,
     step,
     handlers,
   };

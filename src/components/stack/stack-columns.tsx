@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, Pause, Play } from 'lucide-react';
 
 import { useLoopTrack } from '@/components/motion/use-loop-track';
@@ -12,8 +12,16 @@ import { StackTile } from './stack-tile';
 const GAP = 12;
 /** Base auto-scroll speed, px per second. */
 const SPEED = 34;
-/** Tallest a column may get, whatever it holds. */
-const MAX_HEIGHT = 'min(30rem, 62vh)';
+/**
+ * Tallest a column may get, whatever it holds.
+ *
+ * The `max(18rem, …)` is not decoration. This is the cap on a height that is otherwise
+ * driven by measurement, so anything that makes `vh` degenerate — a minimised window
+ * reports a zero-height viewport — would otherwise collapse every column to nothing.
+ * Clamping the viewport term from below means the worst case is a column that is too tall,
+ * not one that has vanished.
+ */
+const MAX_HEIGHT = 'min(30rem, max(18rem, 62vh))';
 /** Height before anything has been measured, so first paint is not a collapsed strip. */
 const FALLBACK_HEIGHT = '22rem';
 
@@ -104,6 +112,7 @@ function StackColumn({
     touchAction,
     setSize,
     nudge,
+    idleReason,
     step,
     handlers,
   } = useLoopTrack({
@@ -207,7 +216,38 @@ function StackColumn({
           Held · double-tap to release
         </p>
       )}
+
+      {process.env.NODE_ENV === 'development' && <TrackState idleReason={idleReason} />}
     </div>
+  );
+}
+
+/**
+ * Dev-only readout of whether this column is actually advancing, and if not, which of the
+ * several legitimate reasons is stopping it. Stripped from production builds.
+ *
+ * Worth the fifteen lines: "it isn't moving" has three or four plausible causes that are
+ * all invisible from the outside — every one of them is a ref so that scrolling and
+ * pointer movement never re-render the tile list — and guessing between them from a
+ * screenshot is exactly what went wrong before.
+ */
+function TrackState({ idleReason }: { idleReason: () => string | null }) {
+  const [reason, setReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Polled rather than pushed: the values it reads are deliberately outside React.
+    const id = setInterval(() => setReason(idleReason()), 250);
+    return () => clearInterval(id);
+  }, [idleReason]);
+
+  return (
+    <span
+      className={`pointer-events-none absolute left-1.5 top-1.5 z-[2] rounded-sm bg-background/70 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider ${
+        reason ? 'text-rank' : 'text-system/70'
+      }`}
+    >
+      {reason ?? 'moving'}
+    </span>
   );
 }
 
