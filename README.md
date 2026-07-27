@@ -85,7 +85,8 @@ the portfolio grows.
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Fetch data, then start the dev server |
+| `npm run dev` | Fetch data, then start the dev server (Turbopack) |
+| `npm run dev:webpack` | Same, on the webpack dev server — fallback if Turbopack misbehaves |
 | `npm run build` | Fetch data, then static-export to `out/` |
 | `npm start` | Serve the built `out/` directory locally |
 | `npm run data` | Refresh `src/data/projects.json` only |
@@ -97,6 +98,29 @@ the portfolio grows.
 
 `npm start` is a static file server over `out/`, so it only shows what the last
 `npm run build` produced — it is not a dev server and will 404 until you've built.
+
+### If a page feels slow, check which mode you're in
+
+`next dev` compiles each route the first time you visit it, and this project's route
+graph pulls in three.js, react-three-fiber, drei and postprocessing. Measured on this
+machine:
+
+| | first hit to `/work/<slug>/` | second hit |
+| --- | --- | --- |
+| `next dev` (webpack) | 22.5s | 1.09s |
+| `next dev --turbopack` | 18.6s | 0.35s |
+| production export | — | static file |
+
+None of that exists in the built site. The detail page ships 41 KB of HTML and about
+150 KB of gzipped JS, and its HTML doesn't reference the three.js chunks at all — the
+smoke canvas is a dynamic import that only loads after `requestIdleCallback`, so it
+never blocks first paint.
+
+To judge real performance, always measure the export, never the dev server:
+
+```bash
+npm run build && npm start
+```
 
 ## Environment variables
 

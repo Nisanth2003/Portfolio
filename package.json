@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "data": "node --env-file-if-exists=.env.local scripts/fetch-projects.mjs",
-    "dev": "npm run data && next dev",
+    "dev": "npm run data && next dev --turbopack",
+    "dev:webpack": "npm run data && next dev",
     "build": "npm run data && next build",
     "start": "npx serve out",
     "lint": "next lint",
