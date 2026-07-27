@@ -13,10 +13,17 @@ on:
   schedule:
     - cron: '0 6 * * *'
 
+# NOTE: this workflow cannot enable GitHub Pages for you. Until
+# Settings -> Pages -> Build and deployment -> Source is set to "GitHub Actions",
+# the build succeeds and the deploy step fails with a bare 404.
 permissions:
   contents: read
   pages: write
   id-token: write
+  # Required by actions/deploy-pages since v4 — it reads the artifact's metadata from
+  # the Actions API. Granted implicitly today, declared here so a tightening of the
+  # default token scope can't quietly break the deploy.
+  actions: read
 
 # Never let two deploys race. In-progress runs finish rather than being cancelled,
 # so a deploy is never left half-applied.
@@ -28,9 +35,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -63,6 +70,13 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SHEET_RANGE: ${{ secrets.SHEET_RANGE }}
           SHEET_CSV_URL: ${{ secrets.SHEET_CSV_URL }}
+          # Optional tabs. Unset is the normal case — the fetch defaults to
+          # Stack!A1:ZZ500 and Experience!A1:ZZ500. Passed through so that setting one
+          # as a secret actually takes effect instead of being silently ignored.
+          STACK_RANGE: ${{ secrets.STACK_RANGE }}
+          STACK_SHEET_ID: ${{ secrets.STACK_SHEET_ID }}
+          EXPERIENCE_RANGE: ${{ secrets.EXPERIENCE_RANGE }}
+          EXPERIENCE_SHEET_ID: ${{ secrets.EXPERIENCE_SHEET_ID }}
         run: |
           set -euo pipefail
           # --strict only once a sheet is actually configured. Before that, the
@@ -96,7 +110,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: ./out
 
@@ -108,4 +122,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

@@ -716,7 +716,7 @@ async function resolveRows() {
  * `{PREFIX}_SHEET_ID` points a tab at a completely separate spreadsheet, for when you
  * want harder isolation than a second tab in the same file.
  */
-async function resolveOptionalTab({ label, prefix, defaultRange, toRecords, after }, src) {
+async function resolveOptionalTab({ label, prefix, defaultRange, toRecords, after }, src, strict) {
   const range = process.env[`${prefix}_RANGE`]?.trim() || defaultRange;
   const csvUrl = process.env[`${prefix}_CSV_URL`]?.trim();
   const sheetId = process.env[`${prefix}_SHEET_ID`]?.trim() || src.sheetId;
@@ -737,9 +737,16 @@ async function resolveOptionalTab({ label, prefix, defaultRange, toRecords, afte
     // renamed column, a 403 — is a warning the user needs to see.
     if (err.code === 'NO_TAB' || err.code === 'EMPTY_TAB') {
       log(`${label}: no "${range.split('!')[0]}" tab yet — skipping that section.`);
-    } else {
-      warn(`${label}: ${err.message}`);
+      return null;
     }
+
+    // In strict mode (CI) a broken tab has to fail the deploy. Warning and carrying on
+    // would publish the site with a whole section silently missing, which looks like a
+    // design decision rather than the typo it is. A tab you simply haven't made yet
+    // still isn't an error — that's the branch above.
+    if (strict) throw new Error(`${label}: ${err.message}`);
+
+    warn(`${label}: ${err.message}`);
     return null;
   }
 }
@@ -827,7 +834,7 @@ async function main() {
     const outFile = dataFile(tab.file);
     const fallbackFile = dataFile(tab.fallback);
 
-    let records = await resolveOptionalTab(tab, src);
+    let records = await resolveOptionalTab(tab, src, strict);
     const tabSource = records ? source : 'fallback';
 
     if (!records) {
