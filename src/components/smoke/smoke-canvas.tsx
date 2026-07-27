@@ -105,21 +105,25 @@ const SKY_FRAG = /* glsl */ `
     // calm floor rather than competing with sky.
     vec3 col = mix(uHorizon, uZenith, pow(uv.y, 0.85));
 
-    // Moonlight from the upper right.
+    // Moonlight from the upper right. Pulled back with the rest of the sky — a bright
+    // wash across a quarter of the frame is the thing that stops a dark theme reading
+    // as dark, however low the base colour goes.
     vec2 moon = vec2(0.78, 0.86);
     float d = length((uv - moon) * vec2(uAspect, 1.0));
-    col += uMoonlight * pow(max(0.0, 1.0 - d * 0.85), 3.2) * 0.34;
+    col += uMoonlight * pow(max(0.0, 1.0 - d * 0.85), 3.6) * 0.21;
 
     // One slow haze band, very faint. Scroll advances it gently; it never churns.
     float haze = fbm(vec2(uv.x * uAspect * 1.1, uv.y * 1.6 - uTime * 0.012 - uScroll * 0.5));
-    col += uMoonlight * smoothstep(0.45, 0.95, haze) * 0.075;
-    col += uAccent * smoothstep(0.6, 1.0, haze) * 0.045;
+    col += uMoonlight * smoothstep(0.5, 0.98, haze) * 0.045;
+    col += uAccent * smoothstep(0.6, 1.0, haze) * 0.05;
 
     // A whisper of violet at the very bottom keeps the Solo Leveling cast.
-    col += uAccent * pow(1.0 - uv.y, 7.0) * 0.09;
+    col += uAccent * pow(1.0 - uv.y, 7.0) * 0.085;
 
+    // Stronger corner falloff: the frame edges now go almost fully to void, which is
+    // what makes the centre of the page feel lit rather than uniformly grey.
     float vig = smoothstep(1.45, 0.15, length((uv - 0.5) * vec2(1.02, 1.0)));
-    col *= mix(0.45, 1.0, vig);
+    col *= mix(0.26, 1.0, vig);
 
     gl_FragColor = vec4(col, 1.0);
   }
@@ -134,10 +138,12 @@ function NightSky() {
       uTime: { value: 0 },
       uScroll: { value: 0 },
       uAspect: { value: 1 },
-      uZenith: { value: new THREE.Color('#120C2B') },
-      uHorizon: { value: new THREE.Color('#05040C') },
+      // Deep-void variant: zenith and horizon both roughly halved, so the moon,
+      // stars and rune lines are the only bright things left in frame.
+      uZenith: { value: new THREE.Color('#0A0619') },
+      uHorizon: { value: new THREE.Color('#020106') },
       uMoonlight: { value: new THREE.Color('#8CA6D8') },
-      uAccent: { value: new THREE.Color('#A855F7') },
+      uAccent: { value: new THREE.Color('#7C3AED') },
     }),
     [],
   );

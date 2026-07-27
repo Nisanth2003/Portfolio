@@ -83,8 +83,14 @@ const SIM_FRAG = /* glsl */ `
     // Flow field. Rise is deliberately weak and swirl is strong: smoke spreads and
     // curls outward, whereas fire climbs in a column. Getting this ratio wrong is
     // most of what makes a trail read as flame.
+    //
+    // Pushed further that way. Two swirl octaves at different scales instead of one,
+    // so the plume folds over itself rather than shearing uniformly, and the upward
+    // term is down from 0.5 to 0.28 — the previous value was enough of a column to
+    // still register as a flicker.
     float swirl = noise(uv * 3.2 + uTime * 0.15) - 0.5;
-    vec2 flow = vec2(swirl * 2.6, 0.5);
+    swirl += (noise(uv * 7.4 - uTime * 0.09) - 0.5) * 0.6;
+    vec2 flow = vec2(swirl * 3.4, 0.28);
 
     // Sampling *behind* the flow direction is what moves the smoke forward.
     vec2 src = uv - flow * uTexel * 1.1;
@@ -130,8 +136,9 @@ const DISPLAY_FRAG = /* glsl */ `
   precision highp float;
 
   uniform sampler2D uTrail;
-  uniform vec3 uSmoke;
-  uniform vec3 uCore;
+  uniform vec3 uAsh;
+  uniform vec3 uViolet;
+  uniform vec3 uEmber;
   uniform vec3 uAccent;
   uniform float uTime;
 
@@ -158,21 +165,37 @@ const DISPLAY_FRAG = /* glsl */ `
     float t = texture2D(uTrail, vUv).r;
     if (t < 0.004) discard;
 
-    // Two grain scales break the density up, so it reads as smoke rather than as an
-    // airbrush gradient.
-    float grain = noise(vUv * 22.0 + uTime * 0.3) * 0.32 + 0.72;
-    grain *= noise(vUv * 58.0 - uTime * 0.18) * 0.28 + 0.82;
+    // Three grain scales now. The extra coarse octave gives the plume large soft
+    // lumps instead of an even speckle, which is most of what separates "smoke" from
+    // "airbrushed gradient" at a glance.
+    float grain = noise(vUv * 9.0 - uTime * 0.09) * 0.30 + 0.76;
+    grain *= noise(vUv * 22.0 + uTime * 0.3) * 0.30 + 0.74;
+    grain *= noise(vUv * 58.0 - uTime * 0.18) * 0.26 + 0.84;
     float d = t * grain;
 
-    // Desaturated moonlit grey, only faintly tinted toward the hovered project's
-    // colour. No hot core, no multiplier above 1: smoke is lit by the scene, it does
-    // not emit. A bright saturated core is what made this look like flame.
-    vec3 body = mix(uSmoke, uAccent, 0.18);
-    vec3 col = mix(body, uCore, smoothstep(0.5, 1.15, d));
+    /**
+     * Purple ramp, coldest where it is thinnest.
+     *
+     *   thin  -> uAsh     near-black violet, the dissipating edge
+     *   mid   -> uViolet  dark purple, the body of the plume
+     *   dense -> uEmber   deep crimson-purple, only in the newest smoke
+     *
+     * The direction of that ramp is the whole trick. Fire is bright and hot in the
+     * middle and dims outward; smoke is densest and *darkest* where it just left the
+     * source. Every colour here is darker than the accent it replaced, and none of
+     * them reaches the bloom threshold, so nothing can bloom into a flame.
+     */
+    vec3 col = mix(uAsh, uViolet, smoothstep(0.05, 0.55, d));
+    col = mix(col, uEmber, smoothstep(0.62, 1.25, d));
 
-    // Capped so the composited pixel stays below the bloom threshold in
-    // smoke-canvas.tsx. If this glows, it is fire again.
-    float alpha = smoothstep(0.02, 0.5, d) * 0.42;
+    // A trace of the hovered project's colour, kept low so a warm accentColour on a
+    // card cannot drag the plume back toward orange.
+    col = mix(col, uAccent, 0.10);
+
+    // Slightly more opaque than before, because the colours are now much darker —
+    // this occludes the sky rather than lighting it. Still capped well under the
+    // bloom threshold in smoke-canvas.tsx.
+    float alpha = smoothstep(0.015, 0.46, d) * 0.55;
     gl_FragColor = vec4(col, alpha);
   }
 `;
@@ -225,11 +248,12 @@ export function CursorTrail() {
         uAspect: { value: 1 },
         uTime: { value: 0 },
         uDecay: { value: 0.965 },
-        // Brush sigma in aspect-corrected units. Wider than before but much dimmer,
-        // which is the difference between a soft puff and a drawn line. Strength is
-        // up to compensate for the far faster decay.
-        uRadius: { value: 0.045 },
-        uStrength: { value: 0.72 },
+        // Brush sigma in aspect-corrected units. Wider and softer again: a broad
+        // low-strength puff spreads into a plume, where a tight strong one stays a
+        // drawn line no matter what the flow field does to it. Strength comes down
+        // with the slower decay, or density accumulates into a solid blob.
+        uRadius: { value: 0.058 },
+        uStrength: { value: 0.5 },
         uActive: { value: 0 },
       },
     });
@@ -263,10 +287,10 @@ export function CursorTrail() {
     // Frame-rate independent decay: a fixed per-frame multiplier would dissipate at
     // different speeds on 60Hz and 144Hz displays.
     //
-    // 0.003^seconds means a wisp is down to ~3% after 0.6s. The previous 0.12 gave it
-    // well over a second, which is what left long-lived streaks hanging behind the
-    // cursor instead of a trail that dissipates as you watch.
-    u.uDecay.value = Math.pow(0.003, d);
+    // 0.02^seconds leaves a wisp at ~10% after 0.6s, against ~3% at the old 0.003.
+    // Smoke hangs and thins; a fast burn-off is a flame guttering. Slower than this
+    // and fast cursor movement smears the screen into a purple wash.
+    u.uDecay.value = Math.pow(0.02, d);
 
     const previousTarget = gl.getRenderTarget();
     gl.setRenderTarget(write);
@@ -286,8 +310,10 @@ export function CursorTrail() {
   const displayUniforms = useMemo(
     () => ({
       uTrail: { value: null as THREE.Texture | null },
-      uSmoke: { value: new THREE.Color('#8E8AA6') },
-      uCore: { value: new THREE.Color('#C3C6D8') },
+      // Dark purple -> purple -> crimson-purple. Read the ramp in DISPLAY_FRAG.
+      uAsh: { value: new THREE.Color('#1B0F2E') },
+      uViolet: { value: new THREE.Color('#4C1D95') },
+      uEmber: { value: new THREE.Color('#7A1F4B') },
       uAccent: { value: accent },
       uTime: { value: 0 },
     }),
