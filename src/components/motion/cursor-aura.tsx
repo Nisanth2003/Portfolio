@@ -44,7 +44,9 @@ export function CursorAura() {
 
       if (ringRef.current) {
         ringRef.current.style.transform = `translate3d(${ring.current.x}px, ${ring.current.y}px, 0) translate(-50%, -50%) scale(${hot.current ? 2.1 : 1})`;
-        ringRef.current.style.opacity = hot.current ? '1' : '0.5';
+        // Idle opacity down from 0.5 to 0.28 — present enough to track, dim enough to
+        // stop competing with the plume. Full brightness is reserved for hover.
+        ringRef.current.style.opacity = hot.current ? '0.95' : '0.28';
       }
 
       frame = requestAnimationFrame(loop);
@@ -61,10 +63,16 @@ export function CursorAura() {
 
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[60] hidden lg:block">
+      {/* Violet, not cyan, and the glow is nearly gone.
+          A hot cyan ring with a 12px halo was the single brightest thing tracking the
+          pointer — it read as a spark leading a flame, and it fought the smoke behind
+          it for the same attention. It is a precision indicator, so it only has to be
+          locatable, not luminous. It still brightens over interactive elements, which
+          is the one moment it should be noticed. */}
       <div
         ref={ringRef}
-        className="absolute left-0 top-0 size-6 rounded-full border border-system/70 transition-[transform,opacity] duration-200 ease-out"
-        style={{ boxShadow: '0 0 12px hsl(188 86% 53% / 0.6)' }}
+        className="absolute left-0 top-0 size-6 rounded-full border border-accent/45 transition-[transform,opacity] duration-200 ease-out"
+        style={{ boxShadow: '0 0 6px hsl(271 91% 65% / 0.22)' }}
       />
     </div>
   );

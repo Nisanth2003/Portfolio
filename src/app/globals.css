@@ -8,33 +8,49 @@
  * would destroy the entire premise.
  */
 @layer base {
+  /**
+   * Deep-void variant. Surfaces drop — background 4% -> 2%, card 9% -> 7% — while
+   * foreground, accent and system stay exactly where they were. Nothing bright was
+   * made brighter; the darks got darker, so the same violet and cyan sit further
+   * above their surroundings and read as light sources.
+   *
+   * Text and borders move the *other* way, and the measured ratios are why. Dropping
+   * muted-foreground alongside the surfaces took it from 8.99:1 to 8.56:1 — the theme
+   * looked darker and read slightly worse, which is the usual way this goes wrong.
+   * Raising it instead gives 9.80:1. Likewise the border: matching it to the darker
+   * ground weakened card-edge separation from 1.52:1 to 1.43:1, dissolving the panels
+   * the layout depends on, so it goes up to 1.64:1.
+   */
   :root {
-    --background: 250 55% 4%; /* #06040F — void, never neutral black */
-    --foreground: 250 100% 98%; /* #F5F3FF — violet-tinted white */
+    --background: 250 60% 2%; /* #03020A — deeper void, still violet-cast not black */
+    --foreground: 250 100% 98%; /* #F5F3FF — unchanged; the light stays light */
 
-    --card: 252 45% 9%; /* #110D21 — System panel fill */
+    --card: 252 46% 7%; /* #0E0A1B — panel fill, held just clear of the void */
     --card-foreground: 250 100% 98%;
 
-    --popover: 252 45% 9%;
+    --popover: 252 46% 7%;
     --popover-foreground: 250 100% 98%;
 
     --primary: 271 91% 65%; /* #A855F7 — Shadow Monarch violet */
-    --primary-foreground: 250 55% 4%;
+    --primary-foreground: 250 60% 2%;
 
-    --secondary: 258 38% 16%;
+    --secondary: 258 38% 11%;
     --secondary-foreground: 250 100% 98%;
 
-    --muted: 255 35% 13%;
-    --muted-foreground: 250 20% 72%; /* #AEA9C6 — 8.8:1 on void */
+    --muted: 255 35% 9%;
+    --muted-foreground: 250 20% 74%; /* 9.80:1 on the new void, up from 8.99:1 */
 
     --accent: 271 91% 65%; /* violet */
-    --accent-foreground: 250 55% 4%;
+    --accent-foreground: 250 60% 2%;
 
     --destructive: 0 84% 62%;
     --destructive-foreground: 250 100% 98%;
 
-    --border: 258 35% 24%; /* #352853 */
-    --input: 258 35% 24%;
+    /* Raised, not lowered. Borders are the only thing separating one near-black
+       panel from another, and on a darker ground they need to be relatively
+       brighter, not dimmer, to hold the same edge. */
+    --border: 258 35% 26%;
+    --input: 258 35% 26%;
     --ring: 271 91% 65%;
 
     --system: 188 86% 53%; /* #22D3EE — System window cyan */
@@ -215,12 +231,16 @@
   /** Night sky for the no-WebGL path: gradient, moonlight from the upper right, and
       a faint violet floor. Mirrors what the shader draws so the fallback is the same
       scene, minus the moon and stars. */
+  /* The no-WebGL backdrop, and the floor the smoke sits on. Darkened to match the new
+     tokens: the top of the gradient came down 11% -> 6%, and the moonlight spill was
+     halved. It has to stay *below* the canvas sky in brightness, or turning the smoke
+     off makes the page lighter, which is backwards. */
   .void-backdrop {
     background:
-      radial-gradient(28% 24% at 78% 14%, hsl(220 45% 72% / 0.2), transparent 68%),
-      radial-gradient(60% 46% at 78% 14%, hsl(220 40% 60% / 0.1), transparent 72%),
-      radial-gradient(70% 50% at 50% 100%, hsl(271 91% 65% / 0.1), transparent 70%),
-      linear-gradient(180deg, hsl(252 42% 11%), hsl(250 55% 4%) 62%);
+      radial-gradient(28% 24% at 78% 14%, hsl(220 45% 72% / 0.11), transparent 68%),
+      radial-gradient(60% 46% at 78% 14%, hsl(220 40% 60% / 0.055), transparent 72%),
+      radial-gradient(70% 50% at 50% 100%, hsl(276 85% 55% / 0.1), transparent 70%),
+      linear-gradient(180deg, hsl(258 48% 6%), hsl(250 60% 2%) 62%);
   }
 
   .grain::after {
