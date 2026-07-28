@@ -12,7 +12,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "sheet-template": "node scripts/make-sheet-template.mjs",
-    "create-tab": "node --env-file-if-exists=.env.local scripts/create-tab.mjs"
+    "create-tab": "node --env-file-if-exists=.env.local scripts/create-tab.mjs",
+    "append": "node --env-file-if-exists=.env.local scripts/append-rows.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.1",

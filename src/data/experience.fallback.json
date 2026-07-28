@@ -1,5 +1,24 @@
 {
-  "source": "fallback",
-  "count": 0,
-  "experience": []
+  "generatedAt": "2026-07-28T06:43:57.950Z",
+  "source": "sheets-api",
+  "count": 1,
+  "experience": [
+    {
+      "published": "true",
+      "order": "",
+      "role": "Software Developer",
+      "company": "Cloudtechner",
+      "location": "Remote",
+      "type": "Full-time",
+      "start": "Jun 2024",
+      "end": "",
+      "summary": "Replace this row with your own. Blank end date = current role.",
+      "highlights": "Shipped X, cutting Y by 40% | Automated the Z pipeline, removing a manual deploy",
+      "tech": "Kotlin, Android, CI/CD",
+      "url": "",
+      "_startKey": 202406,
+      "_current": true,
+      "_sheetRow": 2
+    }
+  ]
 }
