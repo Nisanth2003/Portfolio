@@ -160,6 +160,29 @@ async function main() {
     );
   }
 
+  /**
+   * Every data row must have exactly as many fields as the header.
+   *
+   * This check exists because its absence cost real damage: a `role` value containing
+   * commas was written to the CSV unquoted, so it split into three fields and every column
+   * after it shifted left. The rows uploaded cleanly and looked fine — the corruption only
+   * surfaced later as "imageurl is not a valid URL: 1", because teamSize had landed in the
+   * image column. Silent misalignment is the worst possible failure for a script whose
+   * whole job is putting values in the right columns, so it is now fatal and names the row.
+   */
+  const ragged = csvData
+    .map((cells, i) => ({ line: i + 2, got: cells.length }))
+    .filter((r) => r.got !== csvHeaders.length);
+
+  if (ragged.length) {
+    die(
+      `${ragged.length} row(s) in ${path.relative(ROOT, csvPath)} do not have ` +
+        `${csvHeaders.length} fields:\n  - ` +
+        ragged.map((r) => `line ${r.line}: ${r.got} field(s)`).join('\n  - ') +
+        `\n  Almost always an unquoted comma inside a value. Wrap that field in "quotes".`,
+    );
+  }
+
   // ---- work out what is genuinely new --------------------------------------------
   const keyHeader = normalizeHeader(KEY_COLUMN[TAB]);
   const keyIndex = columnOf.get(keyHeader);

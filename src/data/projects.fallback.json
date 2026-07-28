@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-28T08:27:18.003Z",
+  "generatedAt": "2026-07-28T21:04:16.114Z",
   "source": "sheets-api",
-  "count": 13,
+  "count": 15,
   "projects": [
     {
       "published": "true",
@@ -314,6 +314,54 @@
       "videourl": "",
       "accentcolor": "#F472B6",
       "_sheetRow": 15
+    },
+    {
+      "published": "TRUE",
+      "order": "0",
+      "slug": "hands-free",
+      "title": "Hands-Free",
+      "tagline": "Control an Android phone with hand gestures seen by the front camera — no touch at all.",
+      "description": "Real-time hand tracking with MediaPipe's 21 landmarks over a CameraX pipeline, running 20–30 FPS on mid-range devices, feeding a geometry-based gesture classifier rather than a trained per-gesture model. An AccessibilityService turns those gestures into system-wide taps, swipes, scrolling and Back/Home/Recents, with a cursor overlay that works over any app without SYSTEM_ALERT_WINDOW. A foreground camera service owns the pipeline, so control survives navigating away from the app.",
+      "tech": "Kotlin, Android, MediaPipe, CameraX, AccessibilityService, Coroutines, DataStore",
+      "category": "Mobile",
+      "status": "wip",
+      "year": "2026",
+      "featured": "TRUE",
+      "liveurl": "",
+      "repourl": "https://github.com/Nisanth2003/Hands-Free",
+      "problem": "Touchscreens fail exactly when you cannot touch them — hands wet, gloved or occupied, or the phone mounted across the room. Gesture control normally means training a model per gesture; a geometric classifier over hand landmarks is deterministic, debuggable and tunable instead.",
+      "role": "Sole developer — camera pipeline, gesture classifier, accessibility layer and settings.",
+      "impact": "System-wide control that survives leaving the app, with dwell-to-click, a practice mode, and anti-misfire cooldowns for tremor-prone hands. Phone, TV/Cast and Slides profiles retune sensitivity and remap gestures per use case.",
+      "teamsize": "1",
+      "stats": "Landmarks:21 | Frame rate:20-30 FPS | Gestures:7",
+      "imageurl": "",
+      "videourl": "",
+      "accentcolor": "#14B8A6",
+      "_sheetRow": 16
+    },
+    {
+      "published": "TRUE",
+      "order": "1",
+      "slug": "clockalert",
+      "title": "ClockAlert",
+      "tagline": "Alarms that fire on a real-world event instead of a clock time, with a fallback that always rings.",
+      "description": "An Android alarm app built around event-triggered alarms. One alarm is scheduled at the current best estimate, then refined by sparse signals the OS pushes to it — geofence transitions on the way to a destination, or a matching notification when a task finishes. If a signal never arrives, the alarm still rings at that estimate, which is the guarantee the rest of the design rests on. Room with exported schemas and real migrations, and no background polling anywhere.",
+      "tech": "Kotlin, Android, Room, Geofencing, NotificationListenerService, CameraX, ML Kit, Coroutines",
+      "category": "Mobile",
+      "status": "wip",
+      "year": "2026",
+      "featured": "TRUE",
+      "liveurl": "",
+      "repourl": "https://github.com/Nisanth2003/ClockAlert",
+      "problem": "An alarm for \"when I arrive\" or \"when this finishes\" cannot be a clock time — but the obvious implementation, polling for the condition, drains the battery and still misses. It has to be event-driven, and it has to stay reliable when the event never arrives at all.",
+      "role": "Sole developer — data layer and migrations, trigger engine, geofencing, notification listener and UI.",
+      "impact": "Two trigger sources on one shared engine, driven entirely by push signals, with a guaranteed fallback so a revoked permission or a missed signal degrades to an ordinary alarm rather than silence.",
+      "teamsize": "1",
+      "stats": "Kotlin files:106 | Trigger sources:2 | Polling loops:0",
+      "imageurl": "",
+      "videourl": "",
+      "accentcolor": "#FB923C",
+      "_sheetRow": 17
     }
   ]
 }

@@ -20,10 +20,11 @@ src/data/github.json
 portfolio-*.json
 service-account*.json
 
-sheet-template.csv
-stack-template.csv
-experience-template.csv
-contact-template.csv
+# Scratch CSVs in the repo root: templates from `npm run template`, and the
+# one-off payloads fed to `npm run append` / `npm run edit`. The sheet is the
+# source of truth and src/data/*.fallback.json is the committed snapshot, so
+# these are transient by definition.
+/*.csv
 .DS_Store
 
 # public/tech/ is intentionally NOT ignored. The icons are ~1.5KB SVGs downloaded by

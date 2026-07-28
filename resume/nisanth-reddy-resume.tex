@@ -1,0 +1,254 @@
+% =============================================================================
+% Medapati Nisanth Reddy — resume
+%
+% Compile with pdfLaTeX (Overleaf: Menu -> Compiler -> pdfLaTeX).
+%
+% ATS notes, so the next edit does not undo them:
+%
+%  1. \pdfgentounicode=1 writes a ToUnicode map into the PDF. Without it, text
+%     extraction from a pdfLaTeX document can return mojibake for perfectly
+%     ordinary characters — the single highest-impact ATS fix in this file.
+%  2. No icon fonts. FontAwesome glyphs sit in a private-use Unicode range, so a
+%     parser reading "\faPhone +91 …" gets an unmapped codepoint glued to the
+%     phone number and can drop the field entirely. Contact details are plain
+%     text, separated by a real vertical bar.
+%  3. Real bullet characters (\textbullet), not label={}. Parsers use bullets to
+%     segment responsibilities; unmarked list items merge into one blob.
+%  4. One column throughout, no \colorbox behind headings, no tables. Standard
+%     section names (EXPERIENCE, EDUCATION, TECHNICAL SKILLS, PROJECTS) because
+%     parsers match on those exact words.
+%  5. Dates on the right via \hfill, which still extracts in reading order.
+%
+% Search for VERIFY and TODO before sending this anywhere.
+% =============================================================================
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.55in]{geometry}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+
+% Machine-readable text extraction. Guarded so the file still compiles under
+% XeLaTeX or LuaLaTeX, where this primitive does not exist.
+\ifdefined\pdfgentounicode
+  \input{glyphtounicode}
+  \pdfgentounicode=1
+\fi
+
+\definecolor{primary}{HTML}{1F1F1F}
+\definecolor{secondary}{HTML}{5A6169}
+\definecolor{accent}{HTML}{0B5ED7}
+
+\hypersetup{
+  colorlinks=true,
+  urlcolor=accent,
+  linkcolor=primary,
+  pdftitle={Medapati Nisanth Reddy - Software Developer},
+  pdfauthor={Medapati Nisanth Reddy},
+  pdfkeywords={Software Developer, SDLC, Agile, AWS, Docker, Kubernetes, Terraform,
+    CI/CD, Python, Java, JavaScript, TypeScript, Kotlin, SQL, React, Next.js, DevOps}
+}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+
+% ---------------------------------------------------------------- commands ---
+
+\newcommand{\resumeSection}[1]{%
+  \vspace{7pt}%
+  {\large\bfseries\color{primary}\MakeUppercase{#1}}\par
+  \vspace{1pt}%
+  \textcolor{secondary}{\rule{\textwidth}{0.6pt}}\par
+  \vspace{3pt}%
+}
+
+% #1 title  #2 dates (right)  #3 organisation  #4 detail (right)
+%
+% One command for every section, so Experience, Education and Projects cannot drift
+% into different argument orders — which is exactly what the previous version did:
+% arg 2 was the date under EXPERIENCE and the institution under EDUCATION.
+%
+% \parfillskip=0pt is load-bearing. A paragraph's final line normally ends with
+% \parfillskip (0pt plus 1fil), so an \hfill before \par has to share the available
+% stretch with it fifty-fifty — the date lands somewhere near the middle of the line
+% instead of on the right margin. Zeroing it inside the group gives \hfill all of it.
+\newcommand{\entryLine}[4]{%
+  \par\vspace{3pt}%
+  \begingroup\parfillskip=0pt\relax
+    \noindent\textbf{#1}\hfill\textcolor{secondary}{#2}\par
+    \noindent\textit{\textcolor{accent}{#3}}\hfill\textit{\textcolor{secondary}{#4}}\par
+  \endgroup
+  \vspace{1pt}%
+}
+
+\newenvironment{bullets}{%
+  \begin{itemize}[leftmargin=1.4em, label=\textbullet, itemsep=1.5pt,
+                  parsep=0pt, topsep=3pt, partopsep=0pt]
+}{%
+  \end{itemize}%
+  \vspace{2pt}%
+}
+
+\newcommand{\skillRow}[2]{\textbf{#1:} #2\par\vspace{2pt}}
+
+\begin{document}
+
+% ------------------------------------------------------------------ header ---
+\begin{center}
+  {\Huge\bfseries MEDAPATI NISANTH REDDY}\par
+  \vspace{3pt}
+  {\large Software Developer}\par
+  \vspace{5pt}
+  % Split over two lines deliberately. Five items on one line wraps somewhere LaTeX
+  % chooses, and a contact line that breaks in the middle of a URL looks careless.
+  % VERIFY: add your city on the first line if you want one, e.g. "Hyderabad, India \textbar{}"
+  +91 8790191677 \textbar{}
+  \href{mailto:nisanthreddymedapati@gmail.com}{nisanthreddymedapati@gmail.com} \\[3pt]
+  \href{https://nisanth2003.github.io/Portfolio/}{nisanth2003.github.io/Portfolio} \textbar{}
+  \href{https://www.linkedin.com/in/nisanth-reddy/}{linkedin.com/in/nisanth-reddy} \textbar{}
+  \href{https://github.com/Nisanth2003}{github.com/Nisanth2003}
+\end{center}
+
+\vspace{2pt}
+
+% ----------------------------------------------------------------- summary ---
+\resumeSection{Professional Summary}
+
+Software developer with over a year of professional experience across the full
+\textbf{SDLC} in \textbf{Agile} teams --- requirements gathering, low-level design, code
+development, test scenarios, debugging, and deployment. Builds and ships cloud-native
+services on \textbf{AWS} and \textbf{Google Cloud} using \textbf{Docker},
+\textbf{Kubernetes}, \textbf{Terraform}, and \textbf{CI/CD} pipelines, alongside Android
+and web development in \textbf{Kotlin}, \textbf{TypeScript}, and \textbf{Python}.
+Delivers reliable, cost-effective solutions with a quality-focused approach, takes
+ownership of tasks end to end, and upskills continuously to stay current with cloud and
+AI tooling.
+
+% ------------------------------------------------------------ technical skills ---
+% Kept near the top: keyword-matching parsers weight an explicit skills block
+% heavily, and a recruiter scanning for a stack finds it in two seconds.
+\resumeSection{Technical Skills}
+
+\skillRow{Languages}{Python, Java, JavaScript, TypeScript, Kotlin, SQL, HTML, CSS}
+\skillRow{Frameworks \& Libraries}{React.js, Next.js, Node.js, Express.js, REST APIs, Tailwind CSS, Jetpack Compose}
+\skillRow{Cloud \& DevOps}{AWS (EKS, ALB, IAM), Google Cloud, Docker, Kubernetes, Terraform, CI/CD, GitHub Actions, Git, Linux}
+\skillRow{Databases}{PostgreSQL, MySQL, MongoDB, Firebase, Firestore}
+\skillRow{AI / ML}{Google Gemini API, Prompt engineering, On-device machine learning}
+\skillRow{Practices}{SDLC, Agile development, Requirements gathering, Low-level design, Test scenarios, Debugging, Deployment, Code reviews, Issue resolution and mitigation, Technical documentation, Quality-focused development}
+
+% -------------------------------------------------------------- experience ---
+\resumeSection{Experience}
+
+% Dates confirmed 2025: internship from Jun 2025, converted to full-time Dec 2025.
+% The portfolio sheet's Experience tab now matches, so the two documents agree.
+\entryLine{Software Developer}{Dec 2025 -- Present}{Cloudtechner}{Gurgaon, India (Remote)}
+\begin{bullets}
+  \item Own delivery of assigned modules through the full \textbf{SDLC} in \textbf{Agile}
+        sprints, from requirements gathering and low-level design through code
+        development, test scenarios, debugging, and deployment.
+  \item Containerise services with \textbf{Docker} and deploy to \textbf{AWS EKS},
+        provisioning infrastructure as code with \textbf{Terraform} so environments are
+        repeatable and cost-effective to run.
+  \item Maintain \textbf{CI/CD} pipelines in \textbf{GitHub Actions}, replacing manual
+        deployment steps with automated builds, tests, and releases.
+  \item Diagnose and resolve production issues, applying systematic
+        \textbf{problem-solving} for fast issue resolution and mitigation.
+  \item Write technical documentation for deployment and troubleshooting procedures,
+        supporting knowledge sharing across the team.
+  % TODO: one bullet with a real number. Anything measurable works — deploy time,
+  % build minutes saved, environments provisioned, incidents closed, cost reduced.
+  % A single concrete figure outperforms every keyword in this file.
+\end{bullets}
+
+\entryLine{DevOps / AI Engineer Intern}{Jun 2025 -- Dec 2025}{Cloudtechner}{Gurgaon, India (Remote)}
+\begin{bullets}
+  \item Converted to a full-time Software Developer role in December 2025 on the strength
+        of internship delivery.
+  \item Built and tested application components to specification, taking part in code
+        reviews and Agile ceremonies alongside the engineering team.
+  \item Automated repetitive deployment and environment-setup tasks, improving day-to-day
+        team efficiency and reducing hand-run steps.
+  \item Engaged in continuous upskilling across DevOps tooling and cloud services,
+        applying each addition to live work rather than leaving it theoretical.
+\end{bullets}
+
+% ---------------------------------------------------------------- projects ---
+% Three projects, newest first. Named to match the repositories exactly — Hands-Free,
+% ClockAlert, Portfolio — so the resume and GitHub line up under a recruiter's eye.
+%
+% NOTE: the Hands-Free and ClockAlert repositories are currently EMPTY. Push the code
+% before you send this out, or both links land on GitHub's "this repository is empty"
+% page, which reads worse than having no link at all.
+%
+% Dropped to keep this to three: EKS AI Automation Pipeline and AI Mock Interview. The
+% EKS one is the only cloud/DevOps project you had — if you are applying for anything
+% DevOps-leaning, put it back as a fourth entry; the block is in this file's git history.
+\resumeSection{Projects}
+
+\entryLine{Hands-Free}{2026}{Kotlin, Android, MediaPipe, CameraX, AccessibilityService, DataStore}{\href{https://github.com/Nisanth2003/Hands-Free}{github.com/Nisanth2003/Hands-Free}}
+\begin{bullets}
+  \item Android app that controls the phone entirely through hand gestures seen by the
+        front camera, using \textbf{MediaPipe} 21-point hand tracking over a
+        \textbf{CameraX} pipeline at 20--30 FPS on mid-range devices.
+  \item Wrote a geometry-based gesture classifier instead of training a model per gesture,
+        keeping the recogniser deterministic, debuggable, and tunable at runtime.
+  \item Drives system-wide taps, scrolling, and Back / Home / Recents through an
+        \textbf{AccessibilityService}, with a cursor overlay that works over any app
+        without requesting \texttt{SYSTEM\_ALERT\_WINDOW}.
+  \item Built for accessibility: dwell-to-click for users who cannot coordinate a tap
+        gesture, a practice mode, and anti-misfire cooldowns for tremor-prone hands.
+\end{bullets}
+
+\entryLine{ClockAlert}{2026}{Kotlin, Android, Room, Geofencing, NotificationListenerService, ML Kit}{\href{https://github.com/Nisanth2003/ClockAlert}{github.com/Nisanth2003/ClockAlert}}
+\begin{bullets}
+  \item Android alarm app whose alarms fire on a real-world event rather than a clock
+        time --- arriving at a destination, or a tracked task finishing.
+  \item Designed it around one scheduled alarm per trigger, refined by sparse signals the
+        OS pushes in (geofence transitions, notification updates), so there is no
+        background polling and no always-on location anywhere in the app.
+  \item Guaranteed fallback: if a signal never arrives or a permission is revoked, the
+        alarm still rings at the last estimate --- degrading to an ordinary alarm instead
+        of silence.
+  \item \textbf{Room} persistence with exported schemas and real additive migrations, no
+        destructive fallback, across 100+ Kotlin source files.
+\end{bullets}
+
+% The live site is in the header, so this slot carries the source — an engineer reading
+% the resume wants the repository, and the recruiter already has the link at the top.
+\entryLine{Portfolio Site}{2026}{Next.js, TypeScript, Three.js, Google Sheets API, GitHub Actions}{\href{https://github.com/Nisanth2003/Portfolio}{github.com/Nisanth2003/Portfolio}}
+\begin{bullets}
+  \item Live at \href{https://nisanth2003.github.io/Portfolio/}{nisanth2003.github.io/Portfolio}.
+        Statically generated at build time from a private Google Sheet through a service
+        account, so publishing new work is a spreadsheet edit rather than a code change or
+        a hand-run deploy.
+  \item Validates every sheet row at build time and fails the build with the offending row
+        number, so malformed data can never reach production.
+  \item Deploys to GitHub Pages automatically through \textbf{GitHub Actions}, with a
+        committed fallback snapshot so an upstream outage cannot break a release.
+\end{bullets}
+
+% --------------------------------------------------------------- education ---
+\resumeSection{Education}
+
+% VERIFY the two school years below — inferred from the B.Tech timeline, not confirmed.
+\entryLine{B.Tech (Hons.), Computer Science and Engineering}{2021 -- 2025}{Lovely Professional University}{CGPA: 7.8 / 10}
+\begin{bullets}
+  \item Capstone project: BeWell --- an Android wellness application built with Kotlin and
+        Firebase, delivered in Agile sprints.
+\end{bullets}
+
+\entryLine{Class XII (Senior Secondary)}{2021}{Sri Chaitanya Bhaskar Bhavan}{90.4\%}
+\entryLine{Class X (Secondary)}{2019}{Nalanda Vidya Niketan}{86.4\%}
+
+% -------------------------------------------------------------- additional ---
+\resumeSection{Additional Information}
+
+\skillRow{Strengths}{Ownership, Prioritisation, Deadline management, Collaboration, Communication, Proactive issue handling, Upskilling / reskilling / cross-skilling}
+\skillRow{Availability}{Flexible to work in shifts; open to relocation and to working from any location}
+\skillRow{Academic standing}{No standing arrears; consistent academic performance}
+
+\end{document}

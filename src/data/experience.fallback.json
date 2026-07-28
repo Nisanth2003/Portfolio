@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-28T08:27:19.311Z",
+  "generatedAt": "2026-07-28T21:04:17.524Z",
   "source": "sheets-api",
   "count": 2,
   "experience": [
@@ -10,13 +10,13 @@
       "company": "Cloudtechner",
       "location": "Remote",
       "type": "Full-time",
-      "start": "Dec 2024",
+      "start": "Dec 2025",
       "end": "",
-      "summary": "Converted from the internship to a full-time role in December 2024.",
+      "summary": "Converted from the internship to a full-time role in December 2025.",
       "highlights": "",
       "tech": "Kotlin, Android, CI/CD",
       "url": "",
-      "_startKey": 202412,
+      "_startKey": 202512,
       "_current": true,
       "_sheetRow": 2
     },
@@ -27,13 +27,13 @@
       "company": "Cloudtechner",
       "location": "Remote",
       "type": "Internship",
-      "start": "Jun 2024",
-      "end": "Dec 2024",
-      "summary": "Six months as an intern, converted to a full-time role in December 2024.",
+      "start": "Jun 2025",
+      "end": "Dec 2025",
+      "summary": "Six months as an intern, converted to a full-time role in December 2025.",
       "highlights": "",
       "tech": "",
       "url": "",
-      "_startKey": 202406,
+      "_startKey": 202506,
       "_current": false,
       "_sheetRow": 4
     }
