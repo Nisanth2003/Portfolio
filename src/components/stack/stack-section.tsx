@@ -37,7 +37,7 @@ export function StackSection() {
 
           {/* The columns run themselves. Each category block travels with its own
               column, so the labels stay attached to the tools they describe. */}
-          <StackColumns columns={columns} />
+          <StackColumns columns={columns} total={total} />
         </div>
       </div>
     </section>

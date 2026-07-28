@@ -1,89 +1,68 @@
-import { ArrowUpRight, FileText, Github, Linkedin, Mail } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
+import { ContactGlyph } from '@/components/contact/contact-list';
+import { contactPoints } from '@/lib/contact';
 import { site } from '@/lib/site';
-import { asset } from '@/lib/utils';
 
+/**
+ * The footer is a footer again.
+ *
+ * It used to hold the whole contact block — a headline, a paragraph and two buttons — which
+ * meant the single most important thing on the site lived at the bottom of the longest page,
+ * below thirteen projects and a stack. Contact has its own page now; this is the sign that
+ * points at it, plus the direct links for anyone who does not want another click.
+ */
 export function Footer() {
+  const links = contactPoints.filter((p) => p.href).slice(0, 5);
+
   return (
-    <footer id="contact" className="relative border-t border-border/40">
-      {/* Readability floor over the site-wide smoke. */}
+    <footer className="relative border-t border-border/40">
       <div aria-hidden="true" className="absolute inset-0 -z-[1] bg-background/70" />
 
-      <div className="container max-w-7xl py-20">
-        <div className="flex flex-col gap-10 md:flex-row md:items-end md:justify-between">
-          <div className="max-w-xl">
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Contact
-            </p>
-            <h2 className="mt-3 text-balance text-headline font-bold text-monarch">
-              Seen something worth talking about?
-            </h2>
-            <p className="mt-4 text-pretty leading-relaxed text-muted-foreground">
-              The fastest way to reach me is email. Source for most of the work above is
-              public — read it before you write, if you like.
-            </p>
-          </div>
+      <div className="container max-w-7xl py-12">
+        <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
+          <Link
+            href="/contact"
+            className="group inline-flex items-center gap-3 text-lg font-semibold tracking-tight text-foreground transition-colors hover:text-accent"
+          >
+            Get in touch
+            <ArrowUpRight
+              aria-hidden="true"
+              className="size-4 text-muted-foreground transition-transform duration-300 ease-expo group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent"
+            />
+          </Link>
 
-          <div className="flex flex-wrap gap-3">
-            <Button asChild size="lg">
-              <a href={`mailto:${site.email}`}>
-                <Mail aria-hidden="true" />
-                Email me
-              </a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href={asset(site.resume)} target="_blank" rel="noreferrer noopener">
-                <FileText aria-hidden="true" />
-                Résumé
-                <ArrowUpRight aria-hidden="true" />
-              </a>
-            </Button>
-          </div>
+          {links.length > 0 && (
+            <ul className="flex flex-wrap items-center gap-1">
+              {links.map((point, i) => (
+                <li key={`${point.label}-${i}`}>
+                  <a
+                    href={point.href ?? '#'}
+                    {...(point.href?.startsWith('http')
+                      ? { target: '_blank', rel: 'noreferrer noopener' }
+                      : {})}
+                    className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+                  >
+                    <ContactGlyph icon={point.icon} />
+                    <span className="sr-only">
+                      {point.label}
+                      {point.href?.startsWith('http') ? ', opens in a new tab' : ''}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        <div className="mt-16 flex flex-col-reverse gap-6 border-t border-border/40 pt-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 flex flex-col-reverse gap-4 border-t border-border/40 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} {site.name}
           </p>
-
-          <ul className="flex items-center gap-4 text-sm">
-            <li>
-              <a
-                className="text-muted-foreground transition-colors hover:text-foreground"
-                href={`mailto:${site.email}`}
-              >
-                <span className="sr-only">Email</span>
-                <Mail aria-hidden="true" className="size-4" />
-              </a>
-            </li>
-            {site.github && (
-              <li>
-                <a
-                  className="text-muted-foreground transition-colors hover:text-foreground"
-                  href={site.github}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                >
-                  <span className="sr-only">GitHub, opens in a new tab</span>
-                  <Github aria-hidden="true" className="size-4" />
-                </a>
-              </li>
-            )}
-            {site.linkedin && (
-              <li>
-                <a
-                  className="text-muted-foreground transition-colors hover:text-foreground"
-                  href={site.linkedin}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                >
-                  <span className="sr-only">LinkedIn, opens in a new tab</span>
-                  <Linkedin aria-hidden="true" className="size-4" />
-                </a>
-              </li>
-            )}
-          </ul>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">
+            Generated from a spreadsheet
+          </p>
         </div>
       </div>
     </footer>

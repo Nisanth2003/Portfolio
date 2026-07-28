@@ -1,0 +1,8 @@
+name,column,value
+Android,published,FALSE
+Jetpack Compose,published,FALSE
+Material UI,published,FALSE
+Drizzle ORM,published,FALSE
+Gradle,published,FALSE
+AWS,icon,https://api.iconify.design/mdi:aws.svg?color=%23E8E8ED
+Java,icon,https://api.iconify.design/devicon:java.svg

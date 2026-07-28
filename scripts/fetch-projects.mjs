@@ -45,6 +45,7 @@ const dataFile = (name) => path.join(ROOT, 'src', 'data', name);
 const DEFAULT_RANGE = 'Projects!A1:ZZ2000';
 const DEFAULT_STACK_RANGE = 'Stack!A1:ZZ500';
 const DEFAULT_EXPERIENCE_RANGE = 'Experience!A1:ZZ500';
+const DEFAULT_CONTACT_RANGE = 'Contact!A1:ZZ200';
 
 /** Canonical column names. Anything not in here is ignored (but never an error). */
 const KNOWN_COLUMNS = new Set([
@@ -64,6 +65,11 @@ const KNOWN_STACK_COLUMNS = new Set([
 const KNOWN_EXPERIENCE_COLUMNS = new Set([
   'published', 'order', 'role', 'company', 'location', 'type',
   'start', 'end', 'summary', 'highlights', 'tech', 'url',
+]);
+
+/** Contact tab. Only `label` is required. */
+const KNOWN_CONTACT_COLUMNS = new Set([
+  'published', 'order', 'label', 'value', 'url', 'icon', 'note', 'primary',
 ]);
 
 const normalizeHeader = (h) => String(h ?? '').trim().toLowerCase().replace(/[\s_-]+/g, '');
@@ -537,6 +543,88 @@ function experienceRowsToRecords(rows) {
   return records;
 }
 
+// ---------------------------------------------------------------- contact (tab 4)
+
+/**
+ * Contact points. Deliberately the most permissive tab in the file: a row with nothing but
+ * a label is valid, because the whole reason this tab exists is that adding a way to reach
+ * you should never be a code change or a build failure.
+ */
+function contactRowsToRecords(rows) {
+  const [headerRow, ...dataRows] = rows;
+  const headers = headerRow.map(normalizeHeader);
+
+  if (!headers.includes('label')) {
+    throw new Error(
+      `Contact tab is missing the required "label" column.\n` +
+        `Found headers: ${headers.filter(Boolean).join(', ') || '(none)'}\n` +
+        `Run \`npm run sheet-template\` — it writes contact-template.csv too.`,
+    );
+  }
+
+  const unknown = headers.filter((h) => h && !KNOWN_CONTACT_COLUMNS.has(h));
+  if (unknown.length) log(`contact: ignoring unrecognised column(s): ${unknown.join(', ')}`);
+
+  const hasPublishedColumn = headers.includes('published');
+  const records = [];
+  const errors = [];
+  let draftCount = 0;
+
+  dataRows.forEach((cells, i) => {
+    const sheetRow = i + 2;
+    const rec = {};
+    headers.forEach((h, ci) => {
+      if (!h || !KNOWN_CONTACT_COLUMNS.has(h)) return;
+      const raw = cells[ci];
+      rec[h] = raw === undefined || raw === null ? '' : String(raw).trim();
+    });
+
+    if (hasPublishedColumn && !isTruthy(rec.published)) {
+      draftCount++;
+      return;
+    }
+    if (!rec.label) return; // a blank row is a blank row
+
+    /**
+     * Only the scheme is checked here, and only to keep something unrenderable out of an
+     * href. `mailto:` and `tel:` are the point of this tab, so the projects-tab validator
+     * cannot be reused; anything outside the four is refused by name rather than silently
+     * dropped, because a contact link that quietly vanishes is worse than a failed build.
+     */
+    if (rec.url) {
+      try {
+        const protocol = new URL(rec.url).protocol;
+        if (!['https:', 'http:', 'mailto:', 'tel:'].includes(protocol)) {
+          throw new Error(`unsupported scheme "${protocol}"`);
+        }
+      } catch (err) {
+        errors.push(
+          `contact row ${sheetRow}: url "${rec.url}" is not usable (${err.message}). ` +
+            `Use https://, mailto: or tel:`,
+        );
+      }
+    }
+
+    records.push({ ...rec, _sheetRow: sheetRow });
+  });
+
+  if (errors.length) {
+    throw new Error(
+      `Contact tab has ${errors.length} problem(s) — fix the sheet and rebuild:\n  - ` +
+        errors.join('\n  - '),
+    );
+  }
+
+  records.sort(
+    (a, b) =>
+      (Number.parseInt(a.order, 10) || 9999) - (Number.parseInt(b.order, 10) || 9999) ||
+      a.label.localeCompare(b.label),
+  );
+
+  log(`contact: ${records.length} point(s)${draftCount ? `, ${draftCount} draft(s) skipped` : ''}`);
+  return records;
+}
+
 const EXT_BY_TYPE = {
   'image/svg+xml': '.svg',
   'image/png': '.png',
@@ -771,6 +859,15 @@ const OPTIONAL_TABS = [
     file: 'experience.json',
     fallback: 'experience.fallback.json',
     toRecords: experienceRowsToRecords,
+  },
+  {
+    label: 'contact',
+    prefix: 'CONTACT',
+    defaultRange: DEFAULT_CONTACT_RANGE,
+    key: 'contact',
+    file: 'contact.json',
+    fallback: 'contact.fallback.json',
+    toRecords: contactRowsToRecords,
   },
 ];
 

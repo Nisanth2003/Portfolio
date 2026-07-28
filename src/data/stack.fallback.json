@@ -1,21 +1,8 @@
 {
-  "generatedAt": "2026-07-28T06:43:56.579Z",
+  "generatedAt": "2026-07-28T08:27:18.890Z",
   "source": "sheets-api",
-  "count": 25,
+  "count": 22,
   "stack": [
-    {
-      "published": "true",
-      "order": "1",
-      "name": "Android",
-      "icon": "android",
-      "category": "Frameworks",
-      "level": "primary",
-      "note": "Jetpack, on-device ML",
-      "url": "",
-      "_slug": "android",
-      "_sheetRow": 4,
-      "_iconPath": "/tech/android.svg"
-    },
     {
       "published": "true",
       "order": "1",
@@ -83,19 +70,6 @@
     },
     {
       "published": "TRUE",
-      "order": "4",
-      "name": "Jetpack Compose",
-      "icon": "jetpackcompose",
-      "category": "Frameworks",
-      "level": "working",
-      "note": "",
-      "url": "",
-      "_slug": "jetpack-compose",
-      "_sheetRow": 9,
-      "_iconPath": "/tech/jetpack-compose.svg"
-    },
-    {
-      "published": "TRUE",
       "order": "5",
       "name": "Tailwind CSS",
       "icon": "tailwindcss",
@@ -106,19 +80,6 @@
       "_slug": "tailwind-css",
       "_sheetRow": 10,
       "_iconPath": "/tech/tailwind-css.svg"
-    },
-    {
-      "published": "TRUE",
-      "order": "6",
-      "name": "Material UI",
-      "icon": "mui",
-      "category": "Frameworks",
-      "level": "working",
-      "note": "",
-      "url": "",
-      "_slug": "material-ui",
-      "_sheetRow": 11,
-      "_iconPath": "/tech/material-ui.svg"
     },
     {
       "published": "TRUE",
@@ -188,7 +149,7 @@
       "published": "TRUE",
       "order": "12",
       "name": "Java",
-      "icon": "openjdk",
+      "icon": "https://api.iconify.design/devicon:java.svg",
       "category": "Languages",
       "level": "familiar",
       "note": "",
@@ -209,19 +170,6 @@
       "_slug": "git",
       "_sheetRow": 18,
       "_iconPath": "/tech/git.svg"
-    },
-    {
-      "published": "TRUE",
-      "order": "14",
-      "name": "Gradle",
-      "icon": "gradle",
-      "category": "Tooling",
-      "level": "working",
-      "note": "Android builds",
-      "url": "",
-      "_slug": "gradle",
-      "_sheetRow": 19,
-      "_iconPath": "/tech/gradle.svg"
     },
     {
       "published": "TRUE",
@@ -265,14 +213,28 @@
     {
       "published": "TRUE",
       "order": "18",
+      "name": "Google Cloud",
+      "icon": "googlecloud",
+      "category": "Cloud & DevOps",
+      "level": "working",
+      "note": "Sheets API, service accounts",
+      "url": "",
+      "_slug": "google-cloud",
+      "_sheetRow": 29,
+      "_iconPath": "/tech/google-cloud.svg"
+    },
+    {
+      "published": "TRUE",
+      "order": "18",
       "name": "AWS",
-      "icon": "",
+      "icon": "https://api.iconify.design/mdi:aws.svg?color=%23E8E8ED",
       "category": "Cloud & DevOps",
       "level": "familiar",
       "note": "EKS, ALB, IAM",
       "url": "",
       "_slug": "aws",
-      "_sheetRow": 23
+      "_sheetRow": 23,
+      "_iconPath": "/tech/aws.svg"
     },
     {
       "published": "TRUE",
@@ -302,19 +264,6 @@
     },
     {
       "published": "TRUE",
-      "order": "21",
-      "name": "Drizzle ORM",
-      "icon": "drizzle",
-      "category": "Backend & Data",
-      "level": "familiar",
-      "note": "",
-      "url": "",
-      "_slug": "drizzle-orm",
-      "_sheetRow": 26,
-      "_iconPath": "/tech/drizzle-orm.svg"
-    },
-    {
-      "published": "TRUE",
       "order": "22",
       "name": "Google Gemini",
       "icon": "googlegemini",
@@ -325,6 +274,19 @@
       "_slug": "google-gemini",
       "_sheetRow": 27,
       "_iconPath": "/tech/google-gemini.svg"
+    },
+    {
+      "published": "TRUE",
+      "order": "23",
+      "name": "Claude",
+      "icon": "claude",
+      "category": "AI",
+      "level": "working",
+      "note": "Code, review, this site",
+      "url": "",
+      "_slug": "claude",
+      "_sheetRow": 28,
+      "_iconPath": "/tech/claude.svg"
     }
   ]
 }

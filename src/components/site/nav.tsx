@@ -53,7 +53,7 @@ export function Nav() {
           {/* The stairwell page. Separate from "Work" on purpose: that one is the
               featured rail on the home page, this one is everything. */}
           <NavLink href="/work">Archive</NavLink>
-          <NavLink href="/#contact">Contact</NavLink>
+          <NavLink href="/contact">Contact</NavLink>
           {site.github && (
             <a
               href={site.github}
@@ -75,7 +75,9 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      // Tighter below sm. Three links plus the GitHub icon is 289px of chrome at the
+      // default padding, which overflows a 320px screen once "Archive" joined the row.
+      className="rounded-md px-2 py-2 text-[13px] text-muted-foreground transition-colors hover:text-foreground sm:px-3 sm:text-sm"
     >
       {children}
     </Link>

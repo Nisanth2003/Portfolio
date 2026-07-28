@@ -8,11 +8,8 @@ export const site = {
   initials: 'NR',
   role: 'Software Developer',
 
-  /**
-   * TODO: this is the work address that was available. Swap it for a personal one
-   * before you share the site — a portfolio outlives any one employer's domain.
-   */
-  email: 'nisanth.reddy@cloudtechner.com',
+  /** Personal, deliberately — a portfolio outlives any one employer's domain. */
+  email: 'nisanthreddymedapati@gmail.com',
 
   github: 'https://github.com/Nisanth2003',
   linkedin: '',

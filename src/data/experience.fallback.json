@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-28T06:43:57.950Z",
+  "generatedAt": "2026-07-28T08:27:19.311Z",
   "source": "sheets-api",
-  "count": 1,
+  "count": 2,
   "experience": [
     {
       "published": "true",
@@ -10,15 +10,32 @@
       "company": "Cloudtechner",
       "location": "Remote",
       "type": "Full-time",
-      "start": "Jun 2024",
+      "start": "Dec 2024",
       "end": "",
-      "summary": "Replace this row with your own. Blank end date = current role.",
-      "highlights": "Shipped X, cutting Y by 40% | Automated the Z pipeline, removing a manual deploy",
+      "summary": "Converted from the internship to a full-time role in December 2024.",
+      "highlights": "",
       "tech": "Kotlin, Android, CI/CD",
       "url": "",
-      "_startKey": 202406,
+      "_startKey": 202412,
       "_current": true,
       "_sheetRow": 2
+    },
+    {
+      "published": "TRUE",
+      "order": "",
+      "role": "Software Development Intern",
+      "company": "Cloudtechner",
+      "location": "Remote",
+      "type": "Internship",
+      "start": "Jun 2024",
+      "end": "Dec 2024",
+      "summary": "Six months as an intern, converted to a full-time role in December 2024.",
+      "highlights": "",
+      "tech": "",
+      "url": "",
+      "_startKey": 202406,
+      "_current": false,
+      "_sheetRow": 4
     }
   ]
 }

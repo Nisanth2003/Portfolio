@@ -1,0 +1,51 @@
+{
+  "generatedAt": "2026-07-28T08:27:19.795Z",
+  "source": "sheets-api",
+  "count": 4,
+  "contact": [
+    {
+      "published": "TRUE",
+      "order": "1",
+      "label": "Email",
+      "value": "nisanthreddymedapati@gmail.com",
+      "url": "mailto:nisanthreddymedapati@gmail.com",
+      "icon": "mail",
+      "note": "Fastest way to reach me",
+      "primary": "TRUE",
+      "_sheetRow": 2
+    },
+    {
+      "published": "TRUE",
+      "order": "2",
+      "label": "GitHub",
+      "value": "github.com/Nisanth2003",
+      "url": "https://github.com/Nisanth2003",
+      "icon": "github",
+      "note": "31 public repositories",
+      "primary": "TRUE",
+      "_sheetRow": 3
+    },
+    {
+      "published": "TRUE",
+      "order": "3",
+      "label": "LinkedIn",
+      "value": "linkedin.com/in/nisanth-reddy",
+      "url": "https://www.linkedin.com/in/nisanth-reddy/",
+      "icon": "linkedin",
+      "note": "",
+      "primary": "",
+      "_sheetRow": 5
+    },
+    {
+      "published": "TRUE",
+      "order": "4",
+      "label": "Location",
+      "value": "Remote — India",
+      "url": "",
+      "icon": "location",
+      "note": "",
+      "primary": "",
+      "_sheetRow": 6
+    }
+  ]
+}

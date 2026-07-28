@@ -92,9 +92,11 @@ export function ProjectRail({ projects }: { projects: Project[] }) {
 
       {looping && (
         <div className="mt-4 flex items-center justify-between gap-4">
+          {/* Hidden on phones: the hint plus three controls does not fit a 375px row, and
+              swiping a horizontal rail is discoverable without being told. */}
           <p
             className={cn(
-              'font-mono text-[10px] uppercase tracking-[0.2em]',
+              'hidden font-mono text-[10px] uppercase tracking-[0.2em] sm:block',
               engaged ? 'text-accent' : 'text-muted-foreground/70',
             )}
           >

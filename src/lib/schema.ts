@@ -249,3 +249,81 @@ export const ExperienceFileSchema = z.object({
   count: z.number().optional(),
   experience: z.array(z.unknown()),
 });
+
+/* -------------------------------------------------------------- contact (tab 4)
+ *
+ * Exists so contact points are data, not code. Adding a phone number, dropping a
+ * LinkedIn, reordering them — all of that should be a row in a spreadsheet, because the
+ * alternative is editing a React component every time a way of reaching you changes.
+ */
+
+/** Icons the contact page can draw, by name. Anything else falls back to a dot. */
+export const CONTACT_ICONS = [
+  'mail', 'github', 'linkedin', 'phone', 'location', 'globe', 'resume', 'twitter',
+  'instagram', 'youtube', 'discord', 'telegram', 'whatsapp',
+] as const;
+export type ContactIcon = (typeof CONTACT_ICONS)[number];
+
+const RawContact = z
+  .object({
+    label: z.string().min(1, 'label is required'),
+    value: str,
+    url: str,
+    icon: str,
+    note: str,
+    primary: str,
+    order: str,
+    published: str,
+    _sheetRow: z.number().optional(),
+  })
+  .strip();
+
+/**
+ * Contact links are the one place `mailto:` and `tel:` are legitimate, so this cannot
+ * reuse `urlOrNull` — that one only passes http(s) because a project's "live site" being
+ * a `mailto:` is always a mistake. Everything outside this list is still rejected: a
+ * `javascript:` URL pasted into a spreadsheet must never become an anchor href.
+ */
+const CONTACT_PROTOCOLS = ['https:', 'http:', 'mailto:', 'tel:'];
+
+const contactHref = (v: string) => {
+  const t = v.trim();
+  if (!t) return null;
+  try {
+    return CONTACT_PROTOCOLS.includes(new URL(t).protocol) ? t : null;
+  } catch {
+    return null;
+  }
+};
+
+const iconOrNull = (v: string): ContactIcon | null => {
+  const t = v.trim().toLowerCase();
+  return (CONTACT_ICONS as readonly string[]).includes(t) ? (t as ContactIcon) : null;
+};
+
+export const ContactSchema = RawContact.transform((r) => {
+  const orderNum = Number.parseInt(r.order, 10);
+  const href = contactHref(r.url);
+  return {
+    label: r.label.trim(),
+    /** What's shown. Falls back to the href stripped of its scheme, so a row with only a
+     *  url still reads as something rather than as a blank cell. */
+    value: r.value.trim() || (href ? href.replace(/^(https?:\/\/|mailto:|tel:)/, '') : ''),
+    href,
+    icon: iconOrNull(r.icon),
+    note: r.note.trim(),
+    /** Rendered as a button rather than a list row. */
+    primary: truthy(r.primary),
+    order: Number.isFinite(orderNum) ? orderNum : 9999,
+    sheetRow: r._sheetRow ?? null,
+  };
+});
+
+export type ContactPoint = z.infer<typeof ContactSchema>;
+
+export const ContactFileSchema = z.object({
+  generatedAt: z.string().optional(),
+  source: z.string().optional(),
+  count: z.number().optional(),
+  contact: z.array(z.unknown()),
+});
