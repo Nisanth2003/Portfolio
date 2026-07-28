@@ -110,10 +110,19 @@
 @layer utilities {
   /* ---------------------------------------------------------------- text glow */
 
+  /**
+   * A hint of violet behind the type, not a lamp behind it.
+   *
+   * Was 0.55/0.30 at 18px/48px, which is a reasonable glow on a 1rem label and far too
+   * much on the hero headline — `text-display` runs to 7rem, and text-shadow scales with
+   * nothing, so the same two shadows that flatter small text turn a 112px word into a
+   * violet smear. The headline is already the largest, whitest thing on the page; it does
+   * not need help being noticed.
+   */
   .glow-violet {
     text-shadow:
-      0 0 18px hsl(271 91% 65% / 0.55),
-      0 0 48px hsl(271 91% 65% / 0.3);
+      0 0 16px hsl(271 91% 65% / 0.18),
+      0 0 44px hsl(271 91% 65% / 0.1);
   }
 
   .glow-system {

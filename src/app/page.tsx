@@ -5,6 +5,7 @@ import { Hero } from '@/components/hero/hero';
 import { ProjectRail } from '@/components/work/project-rail';
 import { StackSection } from '@/components/stack/stack-section';
 import { ExperienceSection } from '@/components/experience/experience-section';
+import { GithubActivity } from '@/components/github/activity';
 import { Button } from '@/components/ui/button';
 import { CountUp } from '@/components/motion/count-up';
 import { Marquee } from '@/components/motion/marquee';
@@ -199,6 +200,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Renders nothing if the GitHub snapshot is missing or too thin to chart. */}
+      <GithubActivity />
     </>
   );
 }

@@ -39,7 +39,7 @@ import { getAccessToken, readServiceAccount, SCOPE_READWRITE } from './lib/googl
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Which column identifies a row, per tab, so re-runs skip what is already there. */
-const KEY_COLUMN = { Projects: 'slug', Stack: 'name', Experience: 'role' };
+const KEY_COLUMN = { Projects: 'slug', Stack: 'name', Experience: 'role', Contact: 'label' };
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');

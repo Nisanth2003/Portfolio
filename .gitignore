@@ -9,6 +9,8 @@ next-env.d.ts
 src/data/projects.json
 src/data/stack.json
 src/data/experience.json
+src/data/contact.json
+src/data/github.json
 
 # Never commit these — the service account key is a credential.
 .env
@@ -21,6 +23,7 @@ service-account*.json
 sheet-template.csv
 stack-template.csv
 experience-template.csv
+contact-template.csv
 .DS_Store
 
 # public/tech/ is intentionally NOT ignored. The icons are ~1.5KB SVGs downloaded by

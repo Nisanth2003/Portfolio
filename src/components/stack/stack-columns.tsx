@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, Pause, Play } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { useLoopTrack } from '@/components/motion/use-loop-track';
 import { cn } from '@/lib/utils';
@@ -37,8 +38,7 @@ const FALLBACK_HEIGHT = '22rem';
  * column — three columns holding at once is not a state anyone would ask for, and the
  * one you just double-tapped is obviously the one you meant.
  */
-export function StackColumns({ columns }: { columns: StackGroup[][] }) {
-  const [playing, setPlaying] = useState(true);
+export function StackColumns({ columns, total }: { columns: StackGroup[][]; total: number }) {
   const [engaged, setEngaged] = useState<number | null>(null);
 
   if (columns.length === 0) return null;
@@ -46,26 +46,25 @@ export function StackColumns({ columns }: { columns: StackGroup[][] }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70">
-          {/* Says what the gesture is before anybody has to guess at it. */}
+        {/* Says what the gesture is before anybody has to guess at it — but not on a
+            phone, where the hint and the button together are wider than the screen and
+            the chevrons are the obvious way in anyway. */}
+        <p className="hidden font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 sm:block">
           {engaged === null
             ? 'Double-tap a column to hold it'
             : 'Holding · scroll it, or double-tap to release'}
         </p>
 
-        <button
-          type="button"
-          onClick={() => setPlaying((p) => !p)}
-          aria-pressed={!playing}
+        {/* Where "Pause all" used to be. That button was redundant once double-tap held a
+            column — it duplicated an interaction the columns already had, in the spot the
+            eye lands on first. This is the thing people actually want from a control row. */}
+        <Link
+          href="/stack"
           className="inline-flex shrink-0 items-center gap-1.5 rounded-sm border border-border/60 bg-card/60 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground backdrop-blur-sm transition-colors hover:border-accent/50 hover:text-foreground"
         >
-          {playing ? (
-            <Pause aria-hidden="true" className="size-3" />
-          ) : (
-            <Play aria-hidden="true" className="size-3" />
-          )}
-          {playing ? 'Pause all' : 'Play all'}
-        </button>
+          View all {total}
+          <ArrowUpRight aria-hidden="true" className="size-3" />
+        </Link>
       </div>
 
       <div
@@ -78,7 +77,6 @@ export function StackColumns({ columns }: { columns: StackGroup[][] }) {
             groups={groups}
             index={index}
             total={columns.length}
-            paused={!playing}
             engaged={engaged === index}
             onEngagedChange={(next) => setEngaged(next ? index : null)}
           />
@@ -92,14 +90,12 @@ function StackColumn({
   groups,
   index,
   total,
-  paused,
   engaged,
   onEngagedChange,
 }: {
   groups: StackGroup[];
   index: number;
   total: number;
-  paused: boolean;
   engaged: boolean;
   onEngagedChange: (engaged: boolean) => void;
 }) {
@@ -122,7 +118,6 @@ function StackColumn({
       speed: SPEED + index * 6,
       reverse: index % 2 === 1,
       gap: GAP,
-      paused,
       step: 180,
       engaged,
       onEngagedChange,

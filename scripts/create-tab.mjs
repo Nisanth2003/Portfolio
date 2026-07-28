@@ -33,6 +33,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CREATABLE = {
   stack: { tab: 'Stack', template: 'stack-template.csv', envPrefix: 'STACK' },
   experience: { tab: 'Experience', template: 'experience-template.csv', envPrefix: 'EXPERIENCE' },
+  contact: { tab: 'Contact', template: 'contact-template.csv', envPrefix: 'CONTACT' },
 };
 
 const args = process.argv.slice(2);

@@ -14,6 +14,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'sheet-template.csv');
 const STACK_OUT = path.join(ROOT, 'stack-template.csv');
 const EXPERIENCE_OUT = path.join(ROOT, 'experience-template.csv');
+const CONTACT_OUT = path.join(ROOT, 'contact-template.csv');
 
 /** Order here is only for human readability — the build reads columns by name. */
 const COLUMNS = [
@@ -162,6 +163,35 @@ const EXPERIENCE_EXAMPLES = [
   },
 ];
 
+/** Contact tab. Only `label` is required — everything else can be blank. */
+const CONTACT_COLUMNS = [
+  ['published', 'TRUE to show it on the contact page.'],
+  ['order', 'Sort position. Lower shows first. Blank sorts last.'],
+  ['label', 'What it is: Email, GitHub, LinkedIn, Phone, Location… Required.'],
+  ['value', 'What is shown. Blank falls back to the url without its scheme.'],
+  ['url', 'https://, mailto: or tel:. Blank renders as text with no link.'],
+  ['icon', 'mail | github | linkedin | phone | location | globe | resume | twitter | instagram | youtube | discord | telegram | whatsapp'],
+  ['note', 'Optional second line, e.g. "Fastest way to reach me".'],
+  ['primary', 'TRUE renders it as a button rather than a list row.'],
+];
+
+const CONTACT_EXAMPLES = [
+  {
+    published: 'TRUE', order: '1', label: 'Email', value: 'you@example.com',
+    url: 'mailto:you@example.com', icon: 'mail', note: 'Fastest way to reach me',
+    primary: 'TRUE',
+  },
+  {
+    published: 'TRUE', order: '2', label: 'GitHub', value: 'github.com/you',
+    url: 'https://github.com/you', icon: 'github', note: '', primary: 'TRUE',
+  },
+  {
+    published: 'FALSE', order: '99', label: 'Phone', value: '',
+    url: 'tel:+910000000000', icon: 'phone',
+    note: 'published is FALSE, so this never ships', primary: '',
+  },
+];
+
 const escape = (v) => {
   const s = String(v ?? '');
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -184,18 +214,22 @@ const printReference = (label, columns) => {
 fs.writeFileSync(OUT, toCsv(COLUMNS, EXAMPLES), 'utf8');
 fs.writeFileSync(STACK_OUT, toCsv(STACK_COLUMNS, STACK_EXAMPLES), 'utf8');
 fs.writeFileSync(EXPERIENCE_OUT, toCsv(EXPERIENCE_COLUMNS, EXPERIENCE_EXAMPLES), 'utf8');
+fs.writeFileSync(CONTACT_OUT, toCsv(CONTACT_COLUMNS, CONTACT_EXAMPLES), 'utf8');
 
 console.log(
-  `\nWrote ${[OUT, STACK_OUT, EXPERIENCE_OUT].map((f) => path.relative(ROOT, f)).join(', ')}`,
+  `\nWrote ${[OUT, STACK_OUT, EXPERIENCE_OUT, CONTACT_OUT]
+    .map((f) => path.relative(ROOT, f))
+    .join(', ')}`,
 );
 printReference('Projects tab columns', COLUMNS);
 printReference('Stack tab columns (optional)', STACK_COLUMNS);
 printReference('Experience tab columns (optional)', EXPERIENCE_COLUMNS);
+printReference('Contact tab columns (optional)', CONTACT_COLUMNS);
 console.log(`
 Next steps
   1. sheets.new  ->  File  ->  Import  ->  upload sheet-template.csv
   2. Rename the tab to exactly: Projects
-  3. Optional tabs, named exactly Stack and Experience. Add the tab, make it the
+  3. Optional tabs, named exactly Stack, Experience and Contact. Add the tab, make it the
      active one, then File > Import > "Replace current sheet" with its template.
      Or: npm run create-tab -- Stack       (needs Editor, temporarily)
   4. Keep the sheet PRIVATE. Do not use File > Share > publish to web.
