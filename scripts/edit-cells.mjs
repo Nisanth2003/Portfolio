@@ -209,7 +209,8 @@ async function main() {
   log(`updated ${result.totalUpdatedCells ?? data.length} cell(s)`);
   console.log(`
 Done. Next:
-  1. Set the service account back to Viewer.
+  1. Set the service account back to Viewer — UNLESS the weekly repo sync is on, which
+     needs standing Editor (SETUP.md section 5b).
   2. npm run data                     -> pull it back down and validate
   3. npm run data -- --save-fallback  -> refresh the committed snapshot
 `);

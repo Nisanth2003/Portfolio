@@ -186,7 +186,8 @@ async function main() {
 
   console.log(`
 Done. Next:
-  1. Set the service account back to Viewer in the sheet's Share dialog.
+  1. Set the service account back to Viewer — UNLESS the weekly repo sync is on, which
+     needs standing Editor (SETUP.md section 5b).
   2. Edit the example rows in the "${TAB}" tab to your real stack.
   3. npm run data     -> downloads the icons and rebuilds the section
 `);

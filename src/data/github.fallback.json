@@ -1,19 +1,15 @@
 {
-  "generatedAt": "2026-07-28T21:04:18.889Z",
+  "generatedAt": "2026-08-24T18:10:42.351Z",
   "source": "github-api",
   "login": "Nisanth2003",
   "name": "Nisanth Reddy Medapati",
   "url": "https://github.com/Nisanth2003",
-  "publicRepos": 33,
+  "publicRepos": 34,
   "followers": 1,
   "joined": "2022-02-08",
-  "lastPush": "2026-07-28",
+  "lastPush": "2026-08-24",
   "activeMonths": 16,
   "months": [
-    {
-      "month": "2024-08",
-      "count": 1
-    },
     {
       "month": "2024-09",
       "count": 0
@@ -104,6 +100,10 @@
     },
     {
       "month": "2026-07",
+      "count": 1
+    },
+    {
+      "month": "2026-08",
       "count": 3
     }
   ],
@@ -114,11 +114,11 @@
     },
     {
       "name": "Kotlin",
-      "count": 5
+      "count": 6
     },
     {
       "name": "Python",
-      "count": 3
+      "count": 4
     },
     {
       "name": "HTML",
@@ -135,26 +135,34 @@
   ],
   "recent": [
     {
-      "name": "Hands-Free",
-      "url": "https://github.com/Nisanth2003/Hands-Free",
-      "description": "basically a gesture navigation app for phones.",
-      "language": "",
-      "pushedAt": "2026-07-28",
+      "name": "Portfolio",
+      "url": "https://github.com/Nisanth2003/Portfolio",
+      "description": "",
+      "language": "TypeScript",
+      "pushedAt": "2026-08-24",
+      "stars": 0
+    },
+    {
+      "name": "IPO_PULSE",
+      "url": "https://github.com/Nisanth2003/IPO_PULSE",
+      "description": "a whats up status kind of thing for ipo",
+      "language": "Python",
+      "pushedAt": "2026-08-18",
       "stars": 0
     },
     {
       "name": "ClockAlert",
       "url": "https://github.com/Nisanth2003/ClockAlert",
       "description": "with this you may step into individual health track industry like watches and all",
-      "language": "",
-      "pushedAt": "2026-07-28",
+      "language": "Kotlin",
+      "pushedAt": "2026-08-02",
       "stars": 0
     },
     {
-      "name": "Portfolio",
-      "url": "https://github.com/Nisanth2003/Portfolio",
-      "description": "",
-      "language": "TypeScript",
+      "name": "Hands-Free",
+      "url": "https://github.com/Nisanth2003/Hands-Free",
+      "description": "basically a gesture navigation app for phones.",
+      "language": "",
       "pushedAt": "2026-07-28",
       "stars": 0
     },
@@ -172,14 +180,6 @@
       "description": "",
       "language": "JavaScript",
       "pushedAt": "2026-03-30",
-      "stars": 0
-    },
-    {
-      "name": "LEARNING_DSA",
-      "url": "https://github.com/Nisanth2003/LEARNING_DSA",
-      "description": "Notes for my self for the DSA NOTES WITH A CLEAR README.In C++",
-      "language": "",
-      "pushedAt": "2026-03-21",
       "stars": 0
     }
   ]

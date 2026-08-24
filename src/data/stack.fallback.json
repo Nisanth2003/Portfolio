@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-28T21:04:17.066Z",
+  "generatedAt": "2026-08-24T18:10:40.252Z",
   "source": "sheets-api",
-  "count": 22,
+  "count": 21,
   "stack": [
     {
       "published": "true",
@@ -274,19 +274,6 @@
       "_slug": "google-gemini",
       "_sheetRow": 27,
       "_iconPath": "/tech/google-gemini.svg"
-    },
-    {
-      "published": "TRUE",
-      "order": "23",
-      "name": "Claude",
-      "icon": "claude",
-      "category": "AI",
-      "level": "working",
-      "note": "Code, review, this site",
-      "url": "",
-      "_slug": "claude",
-      "_sheetRow": 28,
-      "_iconPath": "/tech/claude.svg"
     }
   ]
 }
