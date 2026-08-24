@@ -1,0 +1,102 @@
+name: Sync repos into the sheet
+
+# Deliberately a separate workflow from deploy.yml, for one reason: this is the only
+# thing in the repo that can write to the sheet. deploy.yml holds a Viewer credential
+# and must keep holding one — a build has no business being able to modify the source of
+# truth it reads. Two workflows, two secrets, one of which can write.
+#
+# Nothing here can change the live site. Every row is appended with published=FALSE, so
+# a draft only reaches the site after you read it, edit it, and flip the cell yourself.
+
+on:
+  # Mondays, 05:17 UTC. Weekly rather than fortnightly because cron has no "every 14
+  # days": `*/14` in the day-of-month field fires on the 1st, 15th and 29th, which is
+  # 14 days, 14 days, then a 2-3 day stub. Weekly is honest about what it does, costs
+  # nothing extra when there are no new repos, and halves the latency on a new one.
+  #
+  # Two caveats worth knowing: GitHub disables scheduled workflows after 60 days of
+  # repository inactivity, and Actions cron is best-effort — a run can be delayed by
+  # minutes under load. Neither matters for a job whose output is a draft.
+  schedule:
+    - cron: '17 5 * * 1'
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print the plan without writing to the sheet'
+        type: boolean
+        default: false
+      repo:
+        description: 'Draft these repos by name (comma-separated), ignoring the topic gate'
+        type: string
+        default: ''
+
+# Read-only. This job never commits, never deploys, and never touches Pages.
+permissions:
+  contents: read
+
+# Two runs appending at once would be an idempotency test nobody asked for.
+concurrency:
+  group: sync-repos
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # No `npm ci`. scripts/sync-repos.mjs and its auth helper import nothing but node
+      # builtins, so an install step here would only add a minute and a supply chain.
+
+      - name: Draft new repos into the sheet
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          # A dedicated writer key if one exists, otherwise the key the deploy already
+          # uses. Reusing it means promoting that service account to Editor on the sheet,
+          # which also gives the deploy credential the ability to write — the deploy asks
+          # for a read-only token (SCOPE_READONLY in fetch-projects.mjs) so it still
+          # can't, but the ceiling moves from "cannot" to "does not". Adding
+          # GOOGLE_SHEETS_WRITER_JSON later takes precedence with no code change.
+          GOOGLE_SERVICE_ACCOUNT_JSON: >-
+            ${{ secrets.GOOGLE_SHEETS_WRITER_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Raises the GitHub API rate limit from 60/hour per IP — shared between every
+          # runner on the platform — to 1000/hour for this repo.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional overrides, unset in the normal case.
+          SYNC_TOPIC: ${{ vars.SYNC_TOPIC }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          ONLY_REPOS: ${{ inputs.repo }}
+        run: |
+          set -euo pipefail
+
+          # A missing secret is a "not set up yet", not a failure. Failing every Monday
+          # with a red X trains you to ignore red Xs.
+          if [ -z "${SHEET_ID:-}" ] || [ -z "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" ]; then
+            echo "::notice::SHEET_ID or the service-account secret is not set — nothing to sync."
+            exit 0
+          fi
+
+          if [ -z "${GEMINI_API_KEY:-}" ]; then
+            echo "::warning::GEMINI_API_KEY is not set. Rows will still be drafted, from repository metadata only."
+          fi
+
+          flags=(--apply)
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            echo "Dry run requested — nothing will be written."
+            flags=()
+          fi
+
+          # Manual escape hatch, so a first run needs no repo tagged yet. Empty on the
+          # schedule, which always goes through the topic gate.
+          if [ -n "${ONLY_REPOS:-}" ]; then
+            flags+=("--repo=${ONLY_REPOS}")
+          fi
+
+          node scripts/sync-repos.mjs ${flags[@]+"${flags[@]}"}

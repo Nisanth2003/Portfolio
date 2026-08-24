@@ -94,6 +94,8 @@ the portfolio grows.
 | `npm run data -- --save-fallback` | Also refresh the committed snapshot |
 | `npm run sheet-template` | Emit the three template CSVs |
 | `npm run create-tab -- Stack` | One-off: create an optional tab from its template (needs Editor) |
+| `npm run sync` | Dry run: which tagged repos aren't in the sheet yet, plus their drafted rows |
+| `npm run sync -- --apply` | Append those drafts as **unpublished** rows (needs Editor) |
 | `npm run typecheck` | `tsc --noEmit` |
 
 `npm start` is a static file server over `out/`, so it only shows what the last
@@ -149,6 +151,11 @@ from a fixed path.
 | `SHEET_CSV_URL` | published-CSV path | Alternative to the two above; the sheet is then public to anyone with the URL |
 | `NEXT_PUBLIC_SITE_URL` | absolute URLs | Set by the deploy workflow; only needed locally if you're checking canonical/OG tags |
 | `NEXT_PUBLIC_BASE_PATH` | subpath hosting | Set by the deploy workflow (`/3d_portfolio` on Pages) |
+| `GEMINI_API_KEY` | `npm run sync` | Drafts the write-up from the README. Unset just means thinner drafts, never a failure |
+| `GEMINI_MODEL` | optional | Defaults to `gemini-2.5-flash`. An env var so a deprecation needs no code change |
+| `SYNC_TOPIC` | optional | The opt-in GitHub topic, default `portfolio` |
+| `GITHUB_LOGIN` | optional | Defaults to the username parsed out of `src/lib/site.ts` |
+| `GITHUB_TOKEN` | optional | Only raises the GitHub API rate limit (60/hour per IP without one) |
 
 None of these are required. With all of them unset, `npm run dev` logs a warning and
 serves `src/data/projects.fallback.json`.
@@ -411,6 +418,51 @@ npm run data -- --save-fallback
 ```
 
 A build that fails validation leaves the currently deployed site untouched.
+
+## Keeping the sheet in step with GitHub
+
+`.github/workflows/sync-repos.yml` runs `npm run sync` every Monday at 05:17 UTC (and
+on demand). It reads your public repos, drafts the ones that aren't in the sheet yet
+with Gemini, and appends them. Setup is in [SETUP.md](SETUP.md#5-the-weekly-repo-sync).
+
+Three properties make it safe to leave running unattended:
+
+- **It only ever appends drafts.** Every row lands with `published=FALSE`. Existing
+  rows are never edited, cleared, reordered or deleted — the mutating call is the
+  `values:append` in `scripts/append-rows.mjs`, which cannot reach a row that already
+  has data. So the sync cannot change the live site. You publish; it drafts.
+- **It's not in the build.** A Gemini outage, a dead key or a quota delays a draft. It
+  can't fail a deploy, because `npm run data` doesn't know this script exists. The
+  deploy credential also stays Viewer — the write path uses a *second* service account
+  held only by this workflow.
+- **It doesn't write claims about you.** Gemini fills `tagline`, `description`, `tech`
+  and `category` — what the code is. `impact`, `problem`, `role`, `teamSize` and
+  `stats` aren't in the CSV it produces at all, so no prompt change can start filling
+  them. A model handed a README will happily invent "cut latency 40%", and a made-up
+  metric on a page a recruiter reads is the one failure here that actually costs you
+  something. If the README doesn't say what the project does, the description comes
+  back blank on purpose.
+
+**Inclusion is opt-in by topic.** Add the topic `portfolio` to a repo on GitHub
+(**About → Topics**) and the next run drafts it. Untagged repos are ignored forever,
+which is what keeps 34 repos of scratch work out of a sheet of 16 projects. `npm run
+sync` with nothing tagged prints your ten most recently pushed repos as candidates.
+
+Repos already in the sheet need no tag — rows are matched by `slug`, so they're skipped
+either way. The topic is only how new work opts in.
+
+The same run also reports **drift** read-only, without writing anything: a `repoUrl`
+whose repo was renamed, deleted or made private (a dead link on the site), a repo
+archived on GitHub while the sheet still says `shipped`, or a repo with a homepage URL
+where the sheet's `liveUrl` is blank. In CI that lands in the job summary.
+
+```bash
+npm run sync                      # dry run — the plan, and the drift report
+npm run sync -- --apply           # append the drafts (service account needs Editor)
+npm run sync -- --no-ai           # skip Gemini; draft from repo metadata only
+npm run sync -- --repo=my-app     # draft one repo by name, ignoring the topic gate
+npm run sync -- --limit=3         # cap the drafts per run; the rest defer, and it says so
+```
 
 ## Stack
 
