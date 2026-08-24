@@ -222,6 +222,13 @@ The append needs Editor on the sheet. **Share → the service account's `client_
 change Viewer to Editor → Save.** That's the one manual step; nothing else here can be
 done for you.
 
+**And unlike the one-off scripts, leave it there.** `npm run append`, `npm run edit` and
+`npm run create-tab` all tell you to set the account back to Viewer when you're done —
+correct for a command you run by hand twice a year, wrong here. A weekly cron that
+appends needs standing write access, so demoting it after a run means the next Monday
+fails with a 403. If standing Editor on the deploy identity bothers you, that's what the
+second service account below is for.
+
 There are two ways to hold that permission, and this repo supports both with no code
 change:
 
