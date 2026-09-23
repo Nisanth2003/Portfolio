@@ -1,0 +1,25 @@
+# Repos the weekly sync (scripts/sync-repos.mjs) must never draft into the sheet.
+# One repo name per line, case-insensitive. `#` starts a comment.
+# Anything not listed here is drafted automatically (as published=FALSE) once it is
+# non-empty and pushed within the last 180 days.
+
+# Profile and notes, not projects
+Nisanth2003
+Learn_claude-notes
+LEARNING_DSA
+Certifications
+
+# Near-duplicate of ai-rep (EKS AI Automation Pipeline), which is already in the sheet
+AI-Task
+
+# Coursework and scratch repos
+Assignment1
+Trail1
+GitActionTrail
+CSF-402-NodeJs
+CSE402-Ca3
+Java_SummerProject2023
+Project
+
+# Superseded by the current Portfolio site
+MyPortfolioWeb

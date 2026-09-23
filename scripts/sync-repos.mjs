@@ -6,9 +6,11 @@
  *   npm run sync                  # dry run — prints the plan, writes nothing
  *   npm run sync -- --apply       # appends the draft rows (needs Editor)
  *   npm run sync -- --no-ai       # skip Gemini; use repo metadata only
- *   npm run sync -- --topic=x     # opt-in topic, default `portfolio`
+ *   npm run sync -- --topic=x     # topic that always forces a repo in, default `portfolio`
+ *   npm run sync -- --topic-only  # old behaviour: ONLY repos tagged with the topic
+ *   npm run sync -- --since-days=N  # auto mode window, default 180
  *   npm run sync -- --limit=3     # cap how many repos get drafted in one run
- *   npm run sync -- --repo=a,b    # draft these repos by name, ignoring the topic gate
+ *   npm run sync -- --repo=a,b    # draft these repos by name, ignoring every gate
  *
  * Three rules this script is built around. Each one is a deliberate limit, not a
  * shortcut, and loosening any of them makes the automation dangerous rather than more
@@ -30,10 +32,17 @@
  *      produces. Those are claims about you, and a fabricated metric on a page a
  *      recruiter reads is the one failure here that actually costs something.
  *
- * Inclusion is opt-in by GitHub topic. Tag a repo `portfolio` on GitHub and the next run
- * drafts it; leave it untagged and this script ignores it forever. That keeps scratch
- * repos out of the sheet without a config file to maintain, and it puts the decision
- * "is this portfolio material" in the place you're already looking.
+ * Inclusion (changed 2026-09-23). It used to be opt-in by GitHub topic only, and because no
+ * repo was ever tagged, every weekly run was a green no-op and new repos never arrived.
+ * The default is now AUTO: a public, non-fork repo is drafted when
+ *   - it is not in the sheet yet (matched by slug OR by repoUrl, because hand-written
+ *     slugs such as `eks-ai-pipeline` for `ai-rep` don't match the repo name), and
+ *   - it is not empty (GitHub size > 0), and
+ *   - it was pushed within the last SINCE_DAYS days (default 180), and
+ *   - its name is not listed in `sync-repos.ignore` at the repo root.
+ * A repo tagged with TOPIC is drafted regardless of age. `--topic-only` restores the old
+ * gate. This is safe to loosen because rule 1 still holds: a draft is invisible until you
+ * flip `published`, so an unwanted draft costs one row you delete or add to the ignore file.
  *
  * The append itself is delegated to append-rows.mjs rather than reimplemented here. That
  * script is already append-only, idempotent by slug, column-order independent and fatal
@@ -75,12 +84,29 @@ const opt = (name, fallback) => {
 };
 
 const TOPIC = String(opt('topic', process.env.SYNC_TOPIC || 'portfolio')).trim().toLowerCase();
+const TOPIC_ONLY = args.includes('--topic-only') || process.env.SYNC_MODE?.trim() === 'topic';
+const SINCE_DAYS = Math.max(
+  1,
+  Number.parseInt(opt('since-days', process.env.SYNC_SINCE_DAYS || '180'), 10) || 180,
+);
+const IGNORE_FILE = path.join(ROOT, 'sync-repos.ignore');
+
+/** One repo name per line; `#` starts a comment. Missing file = ignore nothing. */
+function readIgnoreList() {
+  if (!fs.existsSync(IGNORE_FILE)) return new Set();
+  return new Set(
+    fs
+      .readFileSync(IGNORE_FILE, 'utf8')
+      .split(/\r?\n/)
+      .map((line) => line.replace(/#.*/, '').trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
 const LIMIT = Math.max(1, Number.parseInt(opt('limit', '8'), 10) || 8);
 
 /**
- * Named repos, for a one-off draft of something you don't want to tag. Manual only —
- * the scheduled run always goes through the topic gate, so this can't quietly become
- * the way repos get in.
+ * Named repos, for a one-off draft of something the gates would skip (too old, empty,
+ * or ignored). Manual only.
  */
 const ONLY = String(opt('repo', ''))
   .split(',')
@@ -464,7 +490,10 @@ async function main() {
   const login = resolveLogin();
   if (!login) die('could not work out the GitHub username — set GITHUB_LOGIN.');
 
-  log(`account: ${login}   opt-in topic: ${TOPIC}   mode: ${APPLY ? 'APPLY' : 'dry run'}`);
+  log(
+    `account: ${login}   inclusion: ${TOPIC_ONLY ? `topic "${TOPIC}" only` : `auto (${SINCE_DAYS}d) + topic "${TOPIC}"`}` +
+      `   mode: ${APPLY ? 'APPLY' : 'dry run'}`,
+  );
 
   const repos = await gh(
     `/users/${encodeURIComponent(login)}/repos?per_page=100&sort=pushed&direction=desc`,
@@ -497,40 +526,70 @@ async function main() {
   }
 
   // ---- what is genuinely new -----------------------------------------------------
+  // A repo is "already in the sheet" if a row has its slug OR links to it. Slug alone
+  // missed rows whose slug was written by hand (`eks-ai-pipeline` for `ai-rep`), and
+  // would draft them a second time.
   const existing = new Set(records.map((r) => slugify(r.slug)).filter(Boolean));
+  const linked = new Set(
+    records
+      .map((r) => r.repoUrl.match(/github\.com\/([^/]+)\/([^/#?]+)/i))
+      .filter((m) => m && m[1].toLowerCase() === login.toLowerCase())
+      .map((m) => m[2].replace(/\.git$/, '').toLowerCase()),
+  );
+  const inSheet = (r) => existing.has(slugify(r.name)) || linked.has(r.name.toLowerCase());
   const own = repos.filter((r) => !r.fork);
+  const hasTopic = (r) => (r.topics ?? []).map((t) => t.toLowerCase()).includes(TOPIC);
 
-  let tagged;
+  let candidates;
   if (ONLY.length) {
-    tagged = own.filter((r) => ONLY.includes(r.name.toLowerCase()));
+    candidates = own.filter((r) => ONLY.includes(r.name.toLowerCase()));
     const unknown = ONLY.filter((n) => !own.some((r) => r.name.toLowerCase() === n));
     // A typo'd name silently drafting nothing is indistinguishable from "already synced".
     if (unknown.length) die(`no such public non-fork repo: ${unknown.join(', ')}`);
-    log(`--repo given: ignoring the "${TOPIC}" gate for ${tagged.map((r) => r.name).join(', ')}`);
+    log(`--repo given: ignoring every gate for ${candidates.map((r) => r.name).join(', ')}`);
+  } else if (TOPIC_ONLY) {
+    candidates = own.filter(hasTopic);
   } else {
-    tagged = own.filter((r) => (r.topics ?? []).map((t) => t.toLowerCase()).includes(TOPIC));
+    const ignored = readIgnoreList();
+    const cutoff = Date.now() - SINCE_DAYS * 24 * 60 * 60 * 1000;
+    const skipped = [];
+    candidates = own.filter((r) => {
+      if (hasTopic(r)) return true;
+      if (inSheet(r)) return false;
+      const why = ignored.has(r.name.toLowerCase())
+        ? 'in sync-repos.ignore'
+        : !r.size
+          ? 'empty repository'
+          : Date.parse(r.pushed_at) < cutoff
+            ? `no push in ${SINCE_DAYS} days`
+            : '';
+      if (why) skipped.push(`${r.name} (${why})`);
+      return !why;
+    });
+    // Name what was left out, so "nothing new" can never again hide a gate problem.
+    const recentSkips = skipped.filter((s) => !s.includes('no push in'));
+    if (recentSkips.length) log(`skipped: ${recentSkips.join(', ')}`);
   }
 
-  if (!tagged.length) {
+  if (!candidates.length) {
     console.log('');
-    warn(`no repository is tagged "${TOPIC}", so there is nothing to draft.`);
-    log('Add the topic on GitHub to the repos you want in the portfolio. Recently pushed:');
-    for (const r of own.slice(0, 10)) {
-      log(`    ${r.name}${r.description ? ` — ${cap(r.description, 60)}` : ''}`);
-    }
-    summary.push(`No repository is tagged \`${TOPIC}\` — nothing to draft.`);
+    const why = TOPIC_ONLY
+      ? `no repository is tagged "${TOPIC}"`
+      : `no repository passed the auto gate (not in the sheet, non-empty, pushed within ${SINCE_DAYS} days, not ignored)`;
+    warn(`${why}, so there is nothing to draft.`);
+    summary.push(`Nothing to draft: ${why}.`);
     return flushSummary();
   }
 
-  const fresh = tagged.filter((r) => !existing.has(slugify(r.name)));
+  const fresh = candidates.filter((r) => !inSheet(r));
   log(
-    `${tagged.length} repo(s) tagged "${TOPIC}", ` +
-      `${tagged.length - fresh.length} already in the sheet`,
+    `${candidates.length} candidate repo(s), ` +
+      `${candidates.length - fresh.length} already in the sheet`,
   );
 
   if (!fresh.length) {
     log('nothing new to draft. Done.');
-    summary.push(`Nothing new — all ${tagged.length} tagged repo(s) are already in the sheet.`);
+    summary.push(`Nothing new — all ${candidates.length} candidate repo(s) are already in the sheet.`);
     return flushSummary();
   }
 

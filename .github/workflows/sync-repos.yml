@@ -27,7 +27,7 @@ on:
         type: boolean
         default: false
       repo:
-        description: 'Draft these repos by name (comma-separated), ignoring the topic gate'
+        description: 'Draft these repos by name (comma-separated), ignoring every gate'
         type: string
         default: ''
 
@@ -68,8 +68,13 @@ jobs:
           # Raises the GitHub API rate limit from 60/hour per IP — shared between every
           # runner on the platform — to 1000/hour for this repo.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional overrides, unset in the normal case.
+          # Optional overrides, unset in the normal case. The default inclusion is AUTO:
+          # any public non-fork repo not yet in the sheet, non-empty, pushed within
+          # SYNC_SINCE_DAYS (180), and not listed in sync-repos.ignore. Set
+          # SYNC_MODE=topic to go back to "only repos tagged SYNC_TOPIC".
           SYNC_TOPIC: ${{ vars.SYNC_TOPIC }}
+          SYNC_MODE: ${{ vars.SYNC_MODE }}
+          SYNC_SINCE_DAYS: ${{ vars.SYNC_SINCE_DAYS }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           DRY_RUN: ${{ inputs.dry_run }}
           ONLY_REPOS: ${{ inputs.repo }}
