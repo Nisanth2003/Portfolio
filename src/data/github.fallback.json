@@ -1,19 +1,15 @@
 {
-  "generatedAt": "2026-08-24T18:10:42.351Z",
+  "generatedAt": "2026-09-23T16:42:40.931Z",
   "source": "github-api",
   "login": "Nisanth2003",
   "name": "Nisanth Reddy Medapati",
   "url": "https://github.com/Nisanth2003",
-  "publicRepos": 34,
-  "followers": 1,
+  "publicRepos": 35,
+  "followers": 2,
   "joined": "2022-02-08",
-  "lastPush": "2026-08-24",
-  "activeMonths": 16,
+  "lastPush": "2026-09-23",
+  "activeMonths": 17,
   "months": [
-    {
-      "month": "2024-09",
-      "count": 0
-    },
     {
       "month": "2024-10",
       "count": 1
@@ -104,6 +100,10 @@
     },
     {
       "month": "2026-08",
+      "count": 1
+    },
+    {
+      "month": "2026-09",
       "count": 3
     }
   ],
@@ -139,7 +139,7 @@
       "url": "https://github.com/Nisanth2003/Portfolio",
       "description": "",
       "language": "TypeScript",
-      "pushedAt": "2026-08-24",
+      "pushedAt": "2026-09-23",
       "stars": 0
     },
     {
@@ -147,7 +147,15 @@
       "url": "https://github.com/Nisanth2003/IPO_PULSE",
       "description": "a whats up status kind of thing for ipo",
       "language": "Python",
-      "pushedAt": "2026-08-18",
+      "pushedAt": "2026-09-10",
+      "stars": 0
+    },
+    {
+      "name": "HallManager",
+      "url": "https://github.com/Nisanth2003/HallManager",
+      "description": "a general website to book seats and show the occupancy of seats in real time",
+      "language": "",
+      "pushedAt": "2026-09-04",
       "stars": 0
     },
     {
@@ -172,14 +180,6 @@
       "description": "",
       "language": "",
       "pushedAt": "2026-04-25",
-      "stars": 0
-    },
-    {
-      "name": "LearnMernThinkBoard",
-      "url": "https://github.com/Nisanth2003/LearnMernThinkBoard",
-      "description": "",
-      "language": "JavaScript",
-      "pushedAt": "2026-03-30",
       "stars": 0
     }
   ]

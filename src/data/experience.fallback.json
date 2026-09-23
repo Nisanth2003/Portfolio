@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-24T18:10:40.735Z",
+  "generatedAt": "2026-09-23T16:42:39.548Z",
   "source": "sheets-api",
   "count": 2,
   "experience": [
@@ -12,9 +12,9 @@
       "type": "Full-time",
       "start": "Dec 2025",
       "end": "",
-      "summary": "Converted from the internship to a full-time role in December 2025.",
+      "summary": "Backend developer on a multi-cloud FinOps platform: FastAPI services over PostgreSQL, the SQL cost-analytics layer, the v2 recommendation engine, FOCUS billing ingestion across AWS, Azure and GCP, and CI/CD to AWS ECR. Converted from the internship to a full-time role in December 2025.",
       "highlights": "",
-      "tech": "Kotlin, Android, CI/CD",
+      "tech": "Python, FastAPI, PostgreSQL, SQL, AWS, Azure, Google Cloud, Docker, GitHub Actions",
       "url": "",
       "_startKey": 202512,
       "_current": true,
